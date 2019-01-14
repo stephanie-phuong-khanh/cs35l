@@ -1,0 +1,90 @@
+Name:   Stephanie Doan
+ID:     604981556
+TA:     Kedar Deshpande
+
+1.  man -k WORD
+    in which WORD is the specific word we search for.
+    This was found by reading through the man manual through the command 'man man'.
+
+2.  mv located at /usr/bin/mv
+    sh located at /usr/bin/sh
+    I used the shell commands learned in discussion:
+        which mv
+        which sh
+
+3. find . -name '?r' -executable
+    Started with command 'man -k search' which I scanned and found the 'find' command. 
+    Read documentation on 'find' using 'man find' and searched how to specify my search 
+    based on the requirements of two characters long and ending in 'r', using additional
+    information about regex to make the search.
+
+4.  emacs-24.3 is actually executed, after following the symbolic links starting from /usr/bin/emacs 
+    I used the commands.
+        ls -l /usr/bin/emacs
+        ls -l /etc/alternatives/emacs
+        ls -l /usr/bin/emacs-24.3
+
+5.  /usr/bin/gcc is version 4.8.5
+    gcc is version  8.2.0
+    They are different programs with different version dates because they are different files
+    that live in different directories and hence have different paths. When I type the command
+    'which gcc' and 'which /usr/bin/gcc', the outputs are different.
+
+6.  From reading documentation for chmod (man chmod) and discussion slides, I found that:
+    For u+sx, the 's' gives the user temporary owner/root permissions if required on execution. 
+    The 'x' gives the user permission to execute the file.
+    For o-w, the -'w' removes other (non-owner) users' permission to write to the file.
+
+7.  find /usr/local/cs -mtime -28
+    Finds within that folder the files modified within the last four days (28 days).
+
+8.  find /usr/bin -type l >> line_count.txt
+    wc -l line_count.txt
+    I am on server 07 and I appended the text file line_count.txt. I then count the number of lines
+    in the line_count.txt file, which is the number of symbolic link files found.
+
+9. librom1394.so.0.3.0 is the oldest file. The file is 5 years, 12 days old since it was last changed Dec 28, 2013. 
+    I used the command: ls -l -a -t /usr/lib64
+        -l = long list
+        -a = lists all files including hidden files
+        -t = lists files in order of modification time
+
+10. From reading about locale (man locale), I see that locale gets its data from environment variables 
+    that control the locale. The manual also led me explore further (man 7 locale) and find that LOCPATH
+    is the variable for the paths to locale data files, and '/usr/lib/locale' is the default path for individual
+    locale data files. I couldn't find anything from 'echo $LOCPATH' so the location of locale's data is 
+    /usr/lib/locale.
+
+11. downcase-dwim
+    downcase-region
+    downcase-word
+    I searched in emacs for commands that include the word 'downcase':
+        emacs
+        C-h a
+        downcase
+     
+12. C-M-r   isearch-backward-regexp -- incremental regular expression search backwards
+    C-M-s   isearch-forward-regexp -- incremental regular expression search
+    C-M-t   transpose-sexps -- transpose expressions
+    C-M-u   backward-up-list -- move up in structure of parenthesis
+    C-M-v   scroll-other-window -- scroll next window upwards a specified number of lines
+    I used the emacs command that displays the name and documentation of a specific key:
+        C-h k KEY
+    
+13. C-g is keyboard quit, signaling a quit condition that directly causes quit during execution
+    of Lisp program. The current command is cancelled and the user is brought back to edit mode.
+    Commands used:
+        C-h k C-g
+
+14. "yank" reinserts, or pastes, the last stretch of killed text. 
+    This is easily invoked with C-y
+    Commands used:
+        C-h t       to pull up the Emacs tutorial
+        C-s yank    to search for "yank" and the shortcut, which is C-y
+        C-h a yank  to find description of the yank command
+
+15. From the emacs command 'C-x d /usr/bin', we find that the dired command outputs:
+        total used in directory 297928 available 13074856
+    From the shell command 'ls -l /usr/bin', we find that the ls -l command outputs:
+        total 297852
+    The difference between the two is that the dired command also prints out the available space.
