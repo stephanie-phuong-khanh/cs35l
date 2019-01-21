@@ -1,0 +1,133 @@
+I copy the English dictionary file:
+    sort /usr/share/dict/words > words
+This sort order depends on locale:
+    LC_CTYPE="C"
+The locale is set to C which means ASCII sorting is used.
+
+I acquire HTML from the assignment page:
+    curl https://web.cs.ucla.edu/classes/winter19/cs35L/assign/assign2.html > assignment.html
+
+Exercises with tr command:
+1.  tr -c 'A-Za-z' '[\n*]' < assignment.html
+    The command 'tr' translates characters from standard input. Here, the contents of assignment.html 
+    is the input, and the -c flag uses the complement of SET1 in 'tr [OPTION]... SET1 [SET2]', so the 
+    complement of the regular expression 'A-Za-z'. Wherever there is a non-alphabet (uppercase
+    or lowerase) character, it is be replaced with a newline character. For example, <!HTML is replaced by:
+    two newlines followed by HTML. The output has small alphabet sequences separated by as many newlines
+    as non-alphabet characters between each alphabet sequence.
+
+2.  tr -cs 'A-Za-z' '[\n*]' < assignment.html
+    This command differs from the first because it also has the -s (squeeze-repeats) flag, which
+    replaces a repeated character specified by SET1 in 'tr [OPTION]... SET1 [SET2]' with a single occurrence
+    of that character. Therefore, each sequence of non-alphabet characters is counted as one non-alphabet
+    character, therefore being replaced by only one newline. The output has alphabet sequences separated by
+    single newlines, so each line contains at least one alphabet character. The same as the first command's 
+    output but without blank lines.
+
+3.  tr -cs 'A-Za-z' '[\n*]' < assignment.html | sort
+    Outputs the same list of words as the previous command, but sorted in ASCII order (A,B,C,..,a,b,c...) as 
+    specified by the locale set to C (ASCII sorting). The output of the tr command is pipelined, serves as 
+    input, to the 'sort' command through the '|' symbol, therefore alphabetically sorting the lines and 
+    outputting the sorted result.
+
+4.  tr -cs 'A-Za-z' '[\n*]' < assignment.html | sort -u
+    Outputs a list of words/groups of alphabet characters, each word on a different line. The words are sorted
+    in ASCII order like the previous command, but no line has the same word/group of characters, because the -u
+    (unique) flag, makes the sort command output only the first of a group of repeated lines, so every line 
+    in the output is unique.
+
+5.  tr -cs 'A-Za-z' '[\n*]' < assignment.html  | sort -u | comm - words
+    Outputs the difference between the output of the previous command
+        tr -cs 'A-Za-z' '[\n*]' < assignment.html | sort -u
+    and the 'words' file, since the output of the pervious command is given as the input to the 'comm' command
+    through pipelining. The 'diff' command outputs three columns, the first being lines unique to the sorted, unique,
+    alphabet-only words of the assignment web page. The second column has the lines unique to the 'words' file.
+    The third column has the lines that appear in both files, such as 'ASCII'.
+
+6.  tr -cs 'A-Za-z' '[\n*]' < assignment.html | sort -u | comm -23 - words
+    Outputs a one-column list of words/groups of alphabet characters that appear in the web page (output of command 4)
+    but not in the 'words' file. This command is essentially the same as the previous command (5), but the -23 flag
+    suppresses columns 2 and 3 in the 'comm' command, eliminating words common to the two files and the words unique to
+    the 'words' file.
+
+
+////////////////////////////////////////////////////////////
+//////////////// 🌺 HAWAIIAN SPELLCHECKER 🌺 ////////////////
+////////////////////////////////////////////////////////////
+
+To fetch the English-Hawaiian webpage:
+    wget -O orig http://mauimapp.com/moolelo/hwnwdseng.htm
+
+These are the steps I follow to spellcheck in Hawaiian:
+1. Keep only lines with <td> and </td>, which have the English and Hawaiian words
+    grep -E '<td>.+</td>$'
+2. Delete every other line starting from first line, which are the English words
+    sed '1~2d'
+3. Delete all HTML tags
+    sed 's/<[^>]*>//g'
+4. Turn uppercase characters to lowercase
+    tr '[:upper:]' '[:lower:]'
+5. Replace ` with '
+    sed "s/\`/\'/g"
+6. Replace spaces with newlines
+    sed 's/\s\+/\n/g'
+7. Replace commas with newlines
+    sed 's/\s\+/\n/g'
+8. Delete all lines with zero or only spaces
+    sed 's/,/\n/g'
+9. Spell check, delete all lines with non-Hawaiian characters
+    sed '/^[[:space:]]*$/d'
+10. Sort lines by ASCII order, deleting repeats with unique flag
+    sort -u
+
+My completed shell script:
+    #! /bin/sh
+
+    cat $1 |
+    grep -E '<td>.+</td>$' |
+    sed '1~2d' |
+    sed 's/<[^>]*>//g' |
+    tr '[:upper:]' '[:lower:]' |
+    sed "s/\`/\'/g" |
+    sed 's/\s\+/\n/g' |
+    sed 's/,/\n/g' |
+    sed '/^[[:space:]]*$/d' |
+    sed "/[^pk\'mnwlhaeiou]/d" |
+    sort -u
+
+I ran this on orig, the original English-Hawaiian webpage, to create hwords, the Hawaiian dictionary:
+    cat orig | ./buildwords.sh > hwords
+
+Fetch webpage:
+    wget -O webpage https://web.cs.ucla.edu/classes/winter19/cs35L/assign/assign2.html
+
+Check webpage against words, deleting non-alphabet words with single newlines (squeeze repeat flag on the tr
+command), turning uppercase to lowercase, unique sorting the words alphabetically, listing words unique
+to the webpage (not present in English dictionary):
+    cat webpage | tr -cs '[:alpha:]' '[\n*]' | tr [:upper:] [:lower:] | sort -u | comm -23 - words | wc -l
+This outputs 43 misspelled English words.
+
+Now we check against the Hawaiian dictionary:
+    cat webpage | tr -cs '[:alpha:]' '[\n*]' | tr [:upper:] [:lower:] | sort -u | comm -23 - hwords | wc -l
+This outputs 490 misspelled Hawaiian words.
+
+Now I check words that are misspelled in English but not in Hawaiian and vice versa.
+I write the outputs of the previous two commands to two files, using these commands:
+    cat webpage | tr -cs '[:alpha:]' '[\n*]' | tr [:upper:] [:lower:] | sort -u | comm -23 - words > mis_english
+    cat webpage | tr -cs '[:alpha:]' '[\n*]' | tr [:upper:] [:lower:] | sort -u | comm -23 - hwords > mis_hawaiian
+
+List words misspelled in English but not in Hawaiian:
+    cat mis_english | comm -23 - mis_hawaiian
+This outputs 3 words, which are:
+    halau
+    lau
+    wiki
+
+List words misspelled in Hawaiian but not in English:
+    cat mis_english | comm -13 - mis_hawaiian
+This outputs 450 words which I will not list, so some of them are:
+    about
+    describe
+    generally
+    string
+    without
