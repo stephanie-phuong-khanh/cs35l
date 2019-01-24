@@ -1,0 +1,24 @@
+#! /bin/bash
+
+export LC_ALL=en_US.utf8
+IFS=$'\n'
+
+for i in "$@"
+do
+    if [[ -d "$i" ]]; then
+	for n in $(find "$i" -type f)
+	do
+	    if { head -n 1 | grep -q '^\-\*\- coding\: utf\-8 \-\*\-$'; } <"$n"; then
+		if ! { grep -qP '[^\x00-\x7F]'; } <"$n"; then
+		    echo "$n"
+		fi
+	    fi
+	done
+    else
+	if { head -n 1 | grep -q '^\-\*\- coding\: utf\-8 \-\*\-$'; } <"$i"; then
+	    if ! { grep -qP '[^\x00-\x7F]'; } <"$i"; then
+		echo "$i"
+	    fi
+	fi
+    fi
+done

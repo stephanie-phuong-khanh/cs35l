@@ -1,0 +1,9 @@
+#! /bin/bash
+
+export LC_ALL=en_US.utf8
+IFS=$'\n'
+
+for i in "$@"
+do
+    grep -rlP '[^\x00-\x7F]' "$i"
+done
