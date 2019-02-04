@@ -1,0 +1,107 @@
+1.
+I downloaded the Coreutils 8.29 source code, signature, and GNU keyring
+with wget commands. As instructed in the directions, I ran the command:
+gpg --verify --keyring ./gnu-keyring.gpg coreutils-8.29.tar.xz.sig
+
+This outputted:
+gpg: Signature made Wed 27 Dec 2017 10:29:05 AM PST using RSA key ID 306037D9
+gpg: /u/eng/class/classste/.gnupg/trustdb.gpg: trustdb created
+gpg: Good signature from "Pádraig Brady <P@draigBrady.com>"
+gpg:                 aka "Pádraig Brady <pbrady@redhat.com>"
+gpg:                 aka "Pádraig Brady <pixelbeat@gnu.org>"
+gpg: WARNING: This key is not certified with a trusted signature!
+gpg:          There is no indication that the signature belongs to the owner.
+Primary key fingerprint: 6C37 DC12 121A 5006 BC1D  B804 DF6F D971 3060 37D9
+
+The warning means I have not marked the key as trusted or the keys are forged.
+To trust a signature means that I have verified that the signature indeed belongs
+to the person it says it is from. The warning generated means that the key
+could have been signed by anybody since it was obtained, so the user account
+does not yet trust the key.
+
+
+2.
+I decompressed the tarball with the command:
+    tar -xJvf coreutils-8.29.tar.xz
+Inside the folder coreutils-8.29, I read the INSTALL manual, made my own directory
+inside my home directory on the server:
+    mkdir coreutils-install
+and installed with custom desination, installing Coreutils into the same folder,
+whose path I obtained with the pwd command when I am in the folder:
+    ./configure --prefix="/u/eng/class/classste/coreutils-install"
+I compile and install Coreutils into configured path:
+    make
+    make install
+
+
+3.
+Inside ~/coreutils-install/bin see the bug that displays .  and .. with the -A flag
+after the -a flag:
+    ./ls -a -A
+
+
+4.
+In my the ~/coreutils-8.29 directory, I create a file and copy and paste the patch file
+from online: https://debbugs.gnu.org/cgi/bugreport.cgi?msg=10;bug=30963;att=1;filename=
+0001-ls-A-now-overrides-a.patch
+    vim patch-file
+    Ctrl-V
+    :wq
+
+I patched the file using the -p1 flag to eliminate the "a/" and "b/" from the patch file
+path name and use the path without these prefixes.
+    patch -p1 < patch_file
+There was the outputted issue:
+    patching file NEWS
+    Hunk #1 FAILED at 4.
+    1 out of 1 hunk FAILED -- saving rejects to file NEWS.rej
+
+
+5.
+I remake inside the same ~/coreutils-8.29 directory:
+    make
+I run into an error: 'automake-1.15' is missing on your system
+TA HaiWei on Piazza confirmed that to solve this error, this command should be run:
+    autoreconf -f -i
+Afterwards, the make was successful.
+
+6.
+I test the old incorrect version of ls as well as the new patched version.
+
+Inside ~/coreutils-install/bin (the old version), I test:
+    ./ls -a     => displays . and ..            => correct
+    ./ls -A     => does not display . and ..    => correct
+    ./ls -A -a  => displays . and ..            => correct
+    ./ls -a -A  => displays . and ..            => incorrect
+
+Inside ~/coreutils-8.29/src (the patched version), I test:
+    ./ls -a     => displays . and ..            => correct
+    ./ls -A     => does not display . and ..    => correct
+    ./ls -A -a  => displays . and ..            => correct
+    ./ls -a -A  => does not display . and ..    => correct => patch worked!
+
+Now I test on self-made directories in my home folder:
+    cd
+    mkdir testdir1
+    cd test-dir
+    touch visible
+    touch .hidden
+
+    cd
+    mkdir testdir2
+
+Inside ~/coreutils-install/bin (the old version), I test:
+    ./ls ~/testdir1 -a -A   
+        outputs:    .  ..  .hidden	visible
+        which is incorrect
+    ./ls ~/testdir2 -a -A
+        outputs: . and ..
+        which is incorrect
+
+Inside ~/coreutils-8.29/src (the patched version), I test:
+    ./ls ~/testdir1 -a -A   
+        outputs:    .hidden  visible
+        which is correct
+    ./ls ~/testdir2 -a -A
+        outputs:
+        (nothing is outputted because folder is empty) which is correct
