@@ -6,10 +6,11 @@ of the A and a flags, which requires more calculation than the default
 
 
 Q2.
-Introducing a change to Coreutils may cause discrepancies between programs
-that used the old (faulty) ls command. Those programs may have depended on
-the output of -a overriding -A flag, so when the patch is applied, the output
-of "ls -aA" is different, so the old programs will not run as expected.
+Introducing a change to Coreutils may cause discrepancies between
+programs that used the old (faulty) ls command. Those programs may
+have depended on the output of -a overriding -A flag, so when the
+patch is applied, the output of "ls -aA" is different, so the old
+programs will not run as expected.
 
 
 Q3.
@@ -22,17 +23,20 @@ File "randline.py", line 64, in main
 File "randline.py", line 34, in chooseline
     return random.choice(self.lines)
 File "/usr/lib64/python2.7/random.py", line 274, in choice
-    return seq[int(self.random() * len(seq))]  # raises IndexError if seq is empty
+    return seq[int(self.random() * len(seq))]  
+        # raises IndexError if seq is empty
 IndexError: list index out of range
 
-The randline class essentially reads the contents of the provided argument,
-in this case /dev/null file. Then the chooseline function calles the random.choice(seq)
-where seq is a nonempty sequence from which random.choice chooses a (pseudo) random
-element. Here, the /dev/null file is empty, so random.choice is called on an empty
-sequence which raises the IndexError. The main function of the randlines.py file 
-fails to check the number of lines in the input file (numlines) is equal to zero; it
-only checks for numlines<0. Therefore, the chooseline function is called on this invalid
-input.
+The randline class essentially reads the contents of the 
+provided argument, in this case /dev/null file. Then the
+chooseline function calles the random.choice(seq) where seq
+is a nonempty sequence from which random.choice chooses a 
+pseudo) random element. Here, the /dev/null file is empty,
+so random.choice is called on an empty sequence which raises
+the IndexError. The main function of the randlines.py file 
+fails to check the number of lines in the input file (numlines)
+is equal to zero; it only checks for numlines<0. Therefore, the
+chooseline function is called on this invalid input.
 
 
 Q4.
@@ -43,8 +47,8 @@ except IOError as (errno, strerror):
                       ^
 SyntaxError: invalid syntax
 
-This is because Python3 no longer uses this syntax for exception, for Python2 makes 
-exceptions iterable and therefore can be accessed with (errno, strerror). Python3 makes
-this syntax valid:
+This is because Python3 no longer uses this syntax for exception,
+for Python2 makes exceptions iterable and therefore can be accessed
+with (errno, strerror). Python3 makes this syntax valid:
     except IOError as e:
 Then, we can unpack e to examine the exception's property.
