@@ -70,18 +70,13 @@ Mandatory arguments to long options are mandatory for short options too."""
 			help="output lines can be repeated")
 	options, args = parser.parse_args(sys.argv[1:])
 	
-	#print('NUMLINES:', options)
-	#print('ARGS:', args)
-
 	#single-option argument "-"
 	stdInData = None
 	if options.count is None and options.lo_hi is None and options.repeat is False:
 		if args is not None and len(args) == 1 and args[0] == '-':
 			args = [] 
-	#print("right before splitlines")	
 	if len(args) < 1 and not sys.stdin.isatty():
 		stdInData = sys.stdin.read().splitlines()
-	#print('STDIN DATA:', stdInData)	
 
 	#never more than two arguments
 	if len(args) > 1:
@@ -110,13 +105,12 @@ Mandatory arguments to long options are mandatory for short options too."""
 	if options.count is not None and options.count < 0:
 		parser.error('negative options count: {0}'. format(options.count))
 
-	#print('MADE IT HERE!')	
+	#checks for cases that yield infinite loop, or extra operand which is invalid
 	if len(args) > 1:
 		parser.error("extra operand '{0}'" . format(args[1]))
 	elif len(args) < 1 and stdInData is None and options.count is None and options.lo_hi is None:
 		while True:
-			pass
-			#print('infinite loop')
+			pass	#infinite loop
 
 	try:
 		sprite = None
@@ -141,7 +135,6 @@ Mandatory arguments to long options are mandatory for short options too."""
 		
 	except OSError as e:
 		parser.error(e)
-
 	
 
 if __name__ == "__main__":

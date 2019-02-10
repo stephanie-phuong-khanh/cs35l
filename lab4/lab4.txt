@@ -1,0 +1,162 @@
+I downloaded and utarred the core utils package:
+wget https://web.cs.ucla.edu/classes/winter19/cs35L/assign/coreutils-with-bug.tar.gz
+tar -xzvf coreutils-with-bug.tar.gz
+
+Inside coreutils-with-bugs folder, I read the INSTALL manual
+and created a directory for installation:
+    mkdir ~/buggy-coreutils
+I configure the path of coreutil's installation into this custom
+desination, whose path I obtained with pwd:
+    ./configure --prefix="/u/eng/class/classste/buggy-coreutils"
+I compile and install Coreutils into configured path:
+    make
+
+
+I encounter this error:
+
+In file included from utimecmp.c:41:0:
+utimens.h:2:5: error: conflicting types for 'futimens'
+ int futimens (int, char const *, struct timespec const [2]);
+     ^
+In file included from utimecmp.h:25:0,
+                 from utimecmp.c:25:
+/usr/include/sys/stat.h:373:12: note: previous declaration of 'futimens' was here
+ extern int futimens (int __fd, const struct timespec __times[2]) __THROW;
+            ^
+
+So, I retrieve and apply the patch:
+wget https://web.cs.ucla.edu/classes/winter19/cs35L/assign/coreutils.diff
+patch -p0 < coreutils.diff
+
+The 'make' and 'make install' now run successfully. From examining coreutils.diff,
+I see that the patch prepends "coreutils_" to functions named "tee" and
+"futimens" which means the unpatched version had a naming conflict with multiple
+functions defined as "futimens" and "tee" therefore preventing compilation.
+Renaming the functions fixes the name conflicts and allows compilation.
+
+
+Now I go to where the buggy Coreutils is installed ~/buggy-coreutils/bin 
+and run the commands provided on the spec. I write these commands into a
+shell script testbug.sh:
+
+#!/bin/bash
+
+tmp=$(mktemp -d)
+cd $tmp
+touch -d '1918-11-11 11:00 GMT' wwi-armistice
+touch now
+sleep 1
+touch now1
+TZ=UTC0 ~/coreutils-with-bug/src/ls -lt --full-time wwi-armistice now now1
+cd
+rm -fr $tmp
+
+
+When I run with ./testbug.sh, I see output that displays the bug that
+lists wwi-armistice on top of now and now1 even though wwi-armistice's timestamp
+is earliest and therefore should be listed last.
+-rw-r--r-- 1 classste class 0 1918-11-11 11:00:00.000000000 +0000 wwi-armistice
+-rw-r--r-- 1 classste class 0 2019-02-10 07:44:10.539258033 +0000 now1
+-rw-r--r-- 1 classste class 0 2019-02-10 07:44:09.537230381 +0000 now
+
+
+I run gdb and see the bug still present:
+
+tmp=$(mktemp -d)
+cd $tmp
+touch -d '1918-11-11 11:00 GMT' wwi-armistice
+touch now
+sleep 1
+touch now1
+gdb ~/coreutils-with-bug/src/ls
+run -lt --full-time wwi-armistice now now1
+
+Starting program: /u/eng/class/classste/coreutils-with-bug/src/ls -lt --full-time wwi-armistice now now1
+-rw-r--r-- 1 classste class 0 1918-11-11 03:00:00.000000000 -0800 wwi-armistice
+-rw-r--r-- 1 classste class 0 2019-02-10 00:25:38.544964837 -0800 now1
+-rw-r--r-- 1 classste class 0 2019-02-10 00:25:37.542937188 -0800 now
+[Inferior 1 (process 44478) exited normally]
+
+
+Opening the (very long) ls.c inside coreutils-with-bug/src, I decide to examine
+the functions compare_atime, compare_ctime, and compare_mtime by setting breaks in gdb:
+    break compare_atime
+    break compare_ctime
+    break compare_mtime
+
+I run the program with "run -lt --full-time wwi-armistice now now1"
+and the debugger stops at the breakpoint at function compare_mtime.
+2884	static int compare_mtime (V a, V b) { return cmp_mtime (a, b, xstrcoll); }
+
+I continue to step into the function:
+cmp_mtime (cmp=0x404340 <xstrcoll>, b=0x617230, a=0x617180) at ls.c:2884
+2884	static int compare_mtime (V a, V b) { return cmp_mtime (a, b, xstrcoll); }
+timespec_cmp (b=..., a=...) at ../lib/timespec.h:48
+48	  int diff = a.tv_sec - b.tv_sec;
+49	  return diff ? diff : a.tv_nsec - b.tv_nsec;
+
+It is shown that function "static int compare_mtime" calls function timespec_cmp
+which is from lib/timespec.h, which I examine:
+
+/* Return negative, zero, positive if A < B, A == B, A > B, respectively.
+   Assume the nanosecond components are in range, or close to it.  */
+static inline int
+timespec_cmp (struct timespec a, struct timespec b)
+{
+  int diff = a.tv_sec - b.tv_sec;
+  return diff ? diff : a.tv_nsec - b.tv_nsec;
+}
+
+
+This function compares two timestamps by subtracting one from the other, so
+overflow can occur if a.tv_sec is an extremely old date (like wwi-armistice)
+which is a large negative value. A large positive value (the current date)
+as b.tv_sec would result in signed overflow when subtracted from a.tv_sec.
+
+
+Creating the patch:
+I copied the timespec.h file 
+    cp timespec.h new-timespec.h 
+and modified the body of function timespec_cmp within new-timespec.h to
+simply compare the dates instead of subtracting (therefore no overflow).
+    if (a.tv_sec > b.tv_sec) {
+        return 1;
+    } else if (a.tv_sec < b.tv_sec) {
+        return -1;
+    } else {
+        return 0;
+    }
+Generate the patch file, apply the patch to timespec.h, and make again:
+diff -u timespec.h new-timespec.h > lab4.diff
+patch -p0 < lab4.diff
+make
+
+
+I go back to ~/buggy-coreutils/bin and execute testbug.sh which outputs:
+-rw-r--r-- 1 classste class 0 2019-02-10 09:17:52.758659863 +0000 now1
+-rw-r--r-- 1 classste class 0 2019-02-10 09:17:51.756632148 +0000 now
+-rw-r--r-- 1 classste class 0 1918-11-11 11:00:00.000000000 +0000 wwi-armistice
+
+This is the correct order for listing the files by timestamp.
+
+
+
+Is bug present on SEASnet servers?
+cd ~
+touch -d '1918-11-11 11:00 GMT' wwi-armistice
+touch now
+sleep 1
+touch now1
+ls -lt --full-time wwi-armistice now now1
+
+-rw-r--r-- 1 classste class 0 2054-12-17 09:28:16.000000000 -0800 wwi-armistice
+-rw-r--r-- 1 classste class 0 2019-02-10 01:21:37.673165000 -0800 now1
+-rw-r--r-- 1 classste class 0 2019-02-10 01:21:32.280680000 -0800 now
+
+This is the correct ordering by timestamp but wwi-armistice's timestamp
+is far in the future, different from the date I set it to with the touch -d
+command. This most likely occurred due to overflow of the very early
+(therfore negative) date 1918, since Unix epoch time stores timestamps as signed
+32-bit integers, set positive and negative numbers relative to 1 January 1970.
+SEASnet has unsigned integers as its timestamps, so the negative integer of 
+1918 is converted to a very large positive unsigned integer, 2054.
