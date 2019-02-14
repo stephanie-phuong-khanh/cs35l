@@ -1,0 +1,56 @@
+Boeing Self Flying Plane
+Nikhil Arora & Carol Lin
+
+Successful test flight
+* Jan 11 - successful self driving air taxi prototype - takeoff, hover, land
+* Aurora Flight Sciences
+* autonomous navigation and landing systems
+
+Plane - quieter, better for environment
+* 30 ft body
+* 28 ft wingspan
+* vertical rotors
+* electric propulsion
+
+How it works
+* internal map of surroundings -- uber (64 laser beams and sensors) & google (lasers, radar, cameras, sonar)
+* navigation system -- software processes inputs and plots a path -- insns sent to actuators to control acceleration, braking, steering
+* traffic rules/obstacles -- hardcoded obstacle avoidance algos, predictive modeling, smart object discrimination (knowing dif between other cars, buses/trucks, bikes/motorcycles)
+* partially-autonomous -- requires human intervention if system encounters uncertainty -- what most selfdriving cars have right now -- what boeing is rn
+* fully autonomous -- vehicle in full control of system, may not even offer steerin wheel
+* "connected" self-driving vehicles -- communicate w/ other vehicles or infrastructure (traffic lights) -- most prototypes lack this -- e.g. Boeing communicates w/ other air taxis
+
+Applications
+* self-flying commercial planes
+* save airlines over $38 billion
+* reduce passenger fares by 10%
+* meet increasing demands for flights -- 6 fold increase in flights by 2050, actually lack of pilots right now
+
+Uber Elevate/Air
+* partnership w/ Uber -- commercial network of planes that provide service from tops of tall buildings
+* autonomous flights across the city to avoid trafic
+* increase mobility in cities, reduce congested roads, planned for 2023 (LA included!)
+
+Safety impacts
+* Pros
+	- thousands die in motor vehicle crashes per year in US -> over 30k deaths in 2015
+	- software less error-prone than humnans -- plane crashes normally caused by pilot error
+* Cons
+	- cybersecurity still issue
+
+Equity impacts
+* Pros
+	- ppl who can't drive will benefit eg elderly, disabled
+	- no public transport
+* Cons
+	- decrease work opportunity for employed drivers
+	- less funding for public transport
+
+Environment
+* Pros
+	- electric autonomous - drop in air pollution/climate impact - more shared rides
+* Cons
+	- gasoline-powered autonomous vehicles - increase in emissions and air pollution
+
+
+

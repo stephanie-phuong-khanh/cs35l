@@ -1,0 +1,37 @@
+Augmented Reality
+Omar & Lauryn
+
+History
+* 1960s Harvard - Ivan Sutherland first AR prototypes
+* NASA, AirForce, MIT, UNC researched in 70s and 80s
+* Caudel and Mizell at Boeing coined - 1990
+* Afterwards became research field
+
+How tf it works
+* trackers, sensors, cameras, computers, displays —> render environment
+* modify input to human sight, sound, rely on touch for input to AR system
+* 3 types
+    * video see-through — video feed edited w/ extra info, fed to you through screen
+    * optical see-through — goggles/google glass — transparent mirrors are sensors (projected on top)
+    * projected display — projects AR onto real world examples
+* most AR systems use goggles and headsets
+
+Star Wars — Luke’s helmet — Hugh’s electronics
+
+AR for Specialized Repairs in LA
+* 105 fire stations in LA
+* sent broken headsets to Piper Technical Center  :( 
+* AR goggles let ppl fix own headsets  :)  faster, cheaper
+
+Applications
+* google glass — ugly, technological let down, creepy —> paid big bang actor to wear
+* pokemon go — successful because of nostalgia
+
+Limitations
+* Resource intensive
+    * VR easier to implement because you don’t have to interact with your environment
+    * Mapping and constantly adapting to changing physical environment -> long time to design
+* AR devices ugly and inconvenient, user on boarding cost outweighs gains
+* Probably won’t be for mainstream use — rather for niche industries
+
+

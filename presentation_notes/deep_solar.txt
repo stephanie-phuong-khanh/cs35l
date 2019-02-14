@@ -1,0 +1,56 @@
+DeepSolar
+Jivan & Shikha
+
+Machine Learning
+* large data set
+* algos (neural networks, layers, parameters)
+* predictions (recognition patterns to increase accuracy, recognize trends/patterns)
+
+AI - computers do tasks w/ human intelligence
+* classifying
+* decision making
+* speech recognition
+* visual recognition
+* language translation
+
+Analyze solar panels on houses with ML
+* Multilayered approach to make connections — modeled after neurons of human brain
+    * Brain connecting to nodes (neurons) through edges
+* data -> label -> cluster/classify
+* inception
+
+DeepSolar
+1. static images - google maps — analyzed tiles (smaller than zip code, larger than neighborhood), over 1 billion
+2. fed into convolutional neural network — inception model (already labeled images), high precision, classified 102,400 pixels per image
+3. database — recognize 50% more solar panels, considered roof tilt and shape, commercial and residential (they look dif)
+4. identify trends — income, weather, population, education level
+5. solar forest — prediction
+
+Results — 2 metrics
+1. residential areas — 93% precision, 88.5% recall
+2. nonresidential areas — 93.7% precision, 90.5% recall 
+* precision = (true positive) / (true pos + false pos)
+* recall =  (true positive) / (true pos + false neg)   ???
+
+Insights
+* commercial in midwest
+* lots in CA, New England
+* solar panels & population density — like a bell curve
+* solar panels & income — level off at super high
+* solar panels & education — positive correlation
+* solar panels & income inequality — more inequality -> fewer solar panels bought
+
+SolarForst
+* predictive model using Random Forest
+* can guess existence and number of solar panels
+* 94 factors ranked by importance
+* merges many trees together to make more accurate result
+* adds randomness by searching in random subset of features
+* e.g. want to guess major of students. Random forest — take ethnicity, socks, clubs, etc. —> take random subset of those features, choose best predictive method
+* R - many parameters to refine algorithm
+
+Applications
+* solar panels -> energy companies, building managers
+* farmland - city planning, urban design
+* expand worldwide, identify utilities, identify garbage patches in ocean, find areas destroyed by forest fires, predict wildfire risk areas
+

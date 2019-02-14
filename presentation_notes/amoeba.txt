@@ -1,0 +1,34 @@
+Amoeba & Traveling Salesman
+Eric & ?
+* Amoeba - smol lil shit - can expand as one entity like elastic woman
+* Agar - like algae
+* NP Hard - holy fuk
+* Optimization - best way to solve
+
+Traveling Salesman - figure out optimal path that will take salesman to all cities and take him back home in shortest distance
+* reward - visiting each city
+* cost - distance traveled
+
+Experiment
+* 2011 Keio in Tokyo - amoeba to solve
+* reward is placing agar
+* cost - focusing dif amounts of light -> amoeba hates this 
+* can't double back - return to node already visited
+
+Results
+* regardless of complexity, amoeba's solution remained high quality -> linar time complexity
+* shortest path corresponds to the most stable configuration because amoeba choose to go ways with less light and get as much nutrients as possible - intrinsic properties
+* solved in new unique way than computers
+* amobea constantly testing new body shapres at a constant rate and processed optical feedback at same time -- something computers can learn!!!
+
+Before - there was experiment on slime molds
+
+Future
+* Math problems - constraint satisfaction, boolean satisfiability problems
+* Traffic flow - intelligent behavior of simple organisms give insight to "swarm intelligence" - seemingly intelligent, emergent behavior of swarm-like slime molds
+	- traffic - many independent cars that need to cooperate to maximize network performance
+* Biological computers - living things actually better for optimization - e.g. slime mold
+* Amoebe inspired parallel computing -- mimics amoeba's photo-feedback mechanism wich charge dynamics in capacitors - expand in one place, contract in the other to achieve best configuration
+
+
+
