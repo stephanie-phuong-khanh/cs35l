@@ -1,0 +1,356 @@
+lab.txt - Answers to Lab 5
+
+1 and 2)
+
+These two programs were written similarly. I accessed the command
+line arguments 'to' and 'from' with arg[1] and arg[2] respectively.
+I tested error conditions such too few or too many arguments, different
+lengths of strings 'to' and 'from', and duplicate characters in the
+'from' string.
+
+I wrote a test file test.txt that contained several sentences, compiled
+the programs, and tested them:
+
+gcc -o tr2b tr2b.c
+gcc -o tr2u tr2u.c
+
+test #1: No arguments
+./tr2b < test.txt
+./tr2u < test.txt
+Must have two string arguments.
+
+test #2: Too many arguments
+./tr2b 'a' 'b' 'c' < test.txt
+./tr2u 'a' 'b' 'c' < test.txt
+Must have two string arguments.
+
+test #3: Different string lengths
+./tr2b 'abc' 'xy' < test.txt
+./tr2u 'abc' 'xy' < test.txt
+Must have string arguments of same length.
+
+test #4: Duplicate characters in 'from' string
+./tr2b 'aab' 'xyz' < test.txt
+./tr2u 'aab' 'xyz' < test.txt
+Cannot have duplicate characters in from argument.
+
+Empty file (outputs nothing)
+touch empty.txt
+./tr2b 'abc' 'xyz' < empty.txt
+./tr2u 'abc' 'xyz' < empty.txt
+
+Correct output for normal behavior
+./tr2b 'abc' 'xyz' < test.txt
+./tr2b 'abc' 'xyz' < test.txt
+
+
+
+3)
+I first create a dummy text file with 5000000 bytes using:
+head --bytes=5000000 /dev/urandom > dummy.txt
+
+I run strace when executing the tr2b and tr2u programs, saving
+the output to a file, which contains one line per system call, so 
+I will count the number of lines to find the number of system
+calls made.
+
+a) Writing to file and counting the lines in output file:
+
+strace -o syscall_b ./tr2b 'abc' 'xyz' < dummy.txt > trash
+strace -o syscall_u ./tr2u 'abc' 'xyz' < dummy.txt > trash
+
+wc -l syscall_b
+wc -l syscall_u
+
+tr2b made 31 system calls, while tr2u made 9573874.
+
+b) Writing to terminal:
+
+strace -o syscall_b ./tr2b 'abc' 'xyz' < dummy.txt
+strace -o syscall_u ./tr2u 'abc' 'xyz' < dummy.txt
+
+wc -l syscall_b
+wc -l syscall_u
+
+Same behavior: tr2b made 33 system calls, while tr2u made 10000026.
+
+In both tests, the tr2u program uses way more syscalls than tr2b 
+does, which is expected because tr2u uses one read and one write syscall
+for every character (~10 million for 5 million characters). The tr2b
+program uses much fewer syscalls because it uses a buffer that allows
+getchar and putchar (which are not system calls) can place and retrieve
+characters respectively, so that the number of system calls is
+significantly fewer.
+
+
+
+4)
+I run the time command to compare the amounts of time the two programs
+take to run on the same file.
+
+Outputting to file:
+time ./tr2b 'abc' 'xyz' < dummy.txt > trash
+real	0m0.021s
+user	0m0.000s
+sys	0m0.002s
+
+time ./tr2u 'abc' 'xyz' < dummy.txt > trash
+real	0m11.071s
+user	0m1.373s
+sys	0m9.491s
+
+Writing to terminal:
+time ./tr2b 'abc' 'xyz' < dummy.txt
+real	0m0.002s
+user	0m0.000s
+sys	0m0.001s
+
+time ./tr2u 'abc' 'xyz' < dummy.txt
+real	0m9.286s
+user	0m1.345s
+sys	0m7.930s
+
+When writing to terminal and to a file, tr2b uses much less time
+than tr2u does. tr2u makes significantly more system calls as shown
+in #3, and system calls entail much overhead: the current procress
+is interrupted and computer saves its state, OS takes control of CPU
+and sees if system call action is valid, performs the action, restores
+the saved state, returns to user mode, and gives control back to user
+process. tr2b's use of a buffer minimizes system calls, therefore 
+significantly reducing the amount of time taken to execute the
+same action.
+
+
+---------
+Answers to Homework 5
+
+To generate test files, I used the frobnicated text given in hw4 spec:
+    The Quick Brown fox jumps over the lazy dog.
+Frobnicated, this becomes:
+    ~BO [_CIA HXE]D lER @_GZY E\OX K FKPS nEM
+I repeated this sentence within each file so that I have text
+files with this line repeated 5, 50, 5000, 50000, and 500000 times.
+Newlines are to be replaced with spaces via the tr command.
+
+yes ~BO [_CIA HXE]D lER @_GZY E\OX K FKPS nEM | head -n 5 | tr '\n' ' ' > 5.txt
+yes ~BO [_CIA HXE]D lER @_GZY E\OX K FKPS nEM | head -n 50 | tr '\n' ' ' > 50.txt
+yes ~BO [_CIA HXE]D lER @_GZY E\OX K FKPS nEM | head -n 500 | tr '\n' ' ' > 500.txt
+yes ~BO [_CIA HXE]D lER @_GZY E\OX K FKPS nEM | head -n 5000 | tr '\n' ' ' > 5000.txt
+yes ~BO [_CIA HXE]D lER @_GZY E\OX K FKPS nEM | head -n 50000 | tr '\n' ' ' > 50000.txt
+yes ~BO [_CIA HXE]D lER @_GZY E\OX K FKPS nEM | head -n 500000 | tr '\n' ' ' > 500000.txt
+
+Results for:    sfrob, sfrobu, sfrobs, sfrobu -f, and sfrobs -f
+
+5.txt
+time ./sfrob < 5.txt
+real	0m0.003s
+user	0m0.001s
+sys	    0m0.001s
+
+time ./sfrobu < 5.txt
+real	0m0.003s
+user	0m0.002s
+sys	    0m0.000s
+
+time ./sfrobs < 5.txt
+real	0m0.010s
+user	0m0.003s
+sys	    0m0.009s
+
+time ./sfrou -f < 5.txt
+real	0m0.002s
+user	0m0.001s
+sys	    0m0.000s
+
+time ./sfrobs -f < 5.txt
+real	0m0.006s
+user	0m0.002s
+sys	    0m0.007s
+
+----
+
+50.txt
+time ./sfrob < 50.txt
+real	0m0.003s
+user	0m0.000s
+sys	    0m0.002s
+
+time ./sfrobu < 50.txt
+real	0m0.005s
+user	0m0.001s
+sys	    0m0.003s
+
+time ./sfrobs < 50.txt
+real	0m0.055s
+user	0m0.002s
+sys 	0m0.008s
+
+time ./sfrobu -f < 50.txt
+real	0m0.018s
+user	0m0.000s
+sys	    0m0.004s
+
+time ./sfrobs -f < 50.txt
+real	0m0.015s
+user	0m0.004s
+sys	    0m0.007s
+
+----
+
+500.txt
+time ./sfrob < 500.txt
+real	0m0.006s
+user	0m0.004s
+sys	    0m0.001s
+
+time ./sfrobu < 500.txt
+real	0m0.026s
+user	0m0.005s
+sys	    0m0.020s
+
+time ./sfrobs < 500.txt
+real	0m0.010s
+user	0m0.006s
+sys	    0m0.007s
+
+time ./sfrobu -f < 500.txt
+real	0m0.028s
+user	0m0.006s
+sys	    0m0.021s
+
+time ./sfrobs -f < 500.txt
+real	0m0.039s
+user	0m0.032s
+sys	    0m0.008s
+
+----
+
+5000.txt
+time ./sfrob < 5000.txt
+real	0m0.038s
+user	0m0.030s
+sys	    0m0.005s
+
+time ./sfrobu < 5000.txt
+real	0m0.241s
+user	0m0.033s
+sys 	0m0.206s
+
+time ./sfrobs < 5000.txt
+real	0m0.057s
+user	0m0.052s
+sys	    0m0.008s
+
+time ./sfrobu -f < 5000.txt
+real	0m0.257s
+user	0m0.045s
+sys	    0m0.210s
+
+time ./sfrobs -f < 5000.txt
+real	0m0.370s
+user	0m0.367s
+sys	    0m0.010s
+
+----
+
+50000.txt
+time ./sfrob < 50000.txt
+real	0m0.472s
+user	0m0.345s
+sys	    0m0.029s
+
+time ./sfrobu < 50000.txt
+real	0m2.424s
+user	0m0.479s
+sys	    0m1.929s
+
+time ./sfrobs < 50000.txt
+real	0m0.784s
+user	0m0.535s
+sys	    0m0.037s
+
+time ./sfrobu -f < 50000.txt
+real	0m2.696s
+user	0m0.606s
+sys	    0m2.075s
+
+time ./sfrobs -f < 50000.txt
+real	0m4.352s
+user	0m4.206s
+sys	    0m0.044s
+----
+
+500000.txt
+time ./sfrob < 500000.txt
+real	0m7.163s
+user	0m4.059s
+sys	    0m0.332s
+
+time ./sfrobu < 500000.txt
+real	0m25.050s
+user	0m5.177s
+sys	    0m19.714s   
+
+time ./sfrobs < 500000.txt
+real	0m7.648s
+user	0m5.820s
+sys	    0m0.297s
+
+time ./sfrobu -f < 500000.txt
+real	0m26.560s
+user	0m6.710s
+sys	    0m19.690s
+
+time ./sfrobs -f < 500000.txt
+real	0m47.605s
+user	0m45.942s
+sys     0m0.316s
+
+
+1. Time difference between sfrob and sfrobu:
+At the smallest text size (5 lines), there was negligible
+difference in performance between sfrob and sfrobu. With increased
+text file size, it is obvious that sfrobu takes much longer than 
+sfrob to perform the same tasks: with 500000.txt, sfrobu is almost
+3 times slower than sfrob. This is because sfrobu uses system calls
+which entail heavy overhead of saving and restoring the interrupted
+process and switching between user and kernel mode, whereas sfrob
+minimizes system calls by using a buffer.
+
+
+2. Comparisons as function of input line number:
+sfrobu and sfrob make the same number of comparisons when
+given the same input, since they both compare letter by letter.
+
+Input lines (I)     Comparisons made (C)
+5                   200
+50                  3387
+500                 48000
+5000                621724 
+50000               7623232
+500000              90356479
+
+Running linear regression on these values, I calculate the formula:
+C = 181.2*I - 331629 with R square value of 0.9998
+There is a clear positive correlation between number of input lines
+and comparisonsn made.
+
+
+3. Overall performance of sfrob, sfrobu, sfrobs, sfrobu -f, sfrobs -f:
+
+We have seen that sfrobu and sfrobu -f run much slower than sfrob, the 
+difference very small with few input lines but a large difference with
+many input lines. The -f flag seems to slow down sfrobu by a small bit,
+probably because of the need to convert to uppercase when comparing.
+What surprised me was that the sfrobs was fairly slow and took slightly
+longer than sfrob. The -f flag slowed the script down immensely with
+large number of text lines, so that sfrobs -f was slower than sfrobu -f,
+perhaps caused by the usage of "sort -f" command within the script.
+Unsurprisingly, the 'sys' value, the time spent in system calls within
+the kernel, is by far the greatest for sfrobu and sfrobu -f, most apparent
+with large input text.
+
+Overall, large input text shows the difference in performance, with
+sfrob being the fastest, followed by sfrobs. Then, sfrobu and sfrobu -f
+are much higher with the -f version slightly slower. Finally sfrobs -f
+is the slowest, perhaps because of my usage of "sort -f". 

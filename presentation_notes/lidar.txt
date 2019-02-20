@@ -1,0 +1,23 @@
+LiDar
+* light detection
+* remote sensing method
+* light shined on surface -> collect data about surface
+* laser emitter, scanner, gps to get info
+
+Gymnastics
+* judges' eyes on form, body posture
+* Fujitsu came up w/ system of LiDar to assest form, difficulty, executiong using LiDar
+* scan 3D for form
+
+How it works
+* emits laser pulses on surface
+* catches reflected laser back to LiDAR pulse source
+* measure time laser travelled
+* 3d mapping
+
+Applications
+* environment -- coastal erosion, pollution, forest fires, etc -> accurate maps, prevention efforts
+	* topographic, bathymetric (water-penetrating green light)
+	* search and rescue
+* sports - behavioral analysis, scoring
+

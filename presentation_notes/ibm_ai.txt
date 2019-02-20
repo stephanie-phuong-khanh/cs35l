@@ -1,0 +1,32 @@
+IBM AI
+Alberto + Keano
+
+Issues with AI/Facial Recognition
+* biased
+* Microsoft's version had problems w/ tweetbot
+* Amazon Rekognition
+	* government agencies like Washington County Sheriff's office in Oregon using it despite known drawbacks
+	* mistook 28 members of Congress as mugshots (40% are POC) -> AI would be biased against ppl of color
+
+IBM's work
+* problem with data given to facial recognition -> need more diverse
+* Diversity if Faces -- data set of annotations of 1 million publicly available face images
+* coding schemes
+	* craniofacial distances = vertical distances between elements in a face
+	* craniofacial areas - measurements of dif areas of face
+	* ...?
+	* facial symmetry - ratio
+	* facial region contrast
+	* skin color w/ Individual Typology Angle
+	* age prediction -> predict age
+	* gender prediction
+	* subjective annotation
+	* pose and resolution - DLIB ml algo
+
+Statistical Analysis
+* biodiversity studied w/ number of species present, relative abundance/evenness
+* --> hope to accelerate study of diversity and coverage for AI
+* ten dif coding schemes expanded
+* new dataset better for reducing model bias?
+
+
