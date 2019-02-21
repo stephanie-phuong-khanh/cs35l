@@ -1,0 +1,74 @@
+Set the path correctly with export PATH=/usr/local/cs/bin:$PATH
+and made sure /usr/local/cs/bin is at the start of my PATH environment
+variable.
+
+Checked that sort is updated:
+$ sort --version
+sort (GNU coreutils) 8.30
+
+Create file with 2^24 random single-precision floating point numbers (using od),
+each on its own line, no white space (using sed or tr). Reading man pages, I pieced
+together the commands and options:
+
+od -f -N $((4*(2**24))) < /dev/urandom > random.txt
+    -f = output float format (same as -t fF)
+    -N = read bytes: limit dump to number of bytes
+        float is 4 bytes in size
+        want to generate 2^24 floats
+        -> 4*(2^24) bytes to be generated
+-> this generates file that looks like this, the first number of each line being
+    the address numbers which we must remove:
+0000000        793250.3  -3.5815717e-32   -6.229145e+32     -0.02498039
+0000020   -7.125082e+35  -4.5585715e-05  -3.5342177e-11      -10.925879
+0000040   -1.605088e+10   0.00012256432  -0.00015660127   6.7383157e+15
+0000060    5.259658e-27  -3.9238476e+37       -4148.374  -5.2351758e-17
+0000100    4.442569e-05   -2.893536e+32  -5.2984126e+34  -3.7274085e-06
+
+I then rewrote the command to delete non floating point numbers (the address numbers)
+using sed 's/^[0-9]* *//' and then replace every space with a newline using: tr -s ' ' '\n'.
+The final command:
+
+od -f -N $((4*(2**24))) < /dev/urandom | sed 's/^[0-9]* *//' | tr -s ' ' '\n' > random.txt
+
+Checked for correct line number (2^24 = 16777216):
+$ cat random.txt | wc -l
+16777216
+
+
+Timing the sorts:
+$ time -p sort -g random.txt > /dev/null
+real 37.38
+user 205.11
+sys 1.26
+
+$ time -p sort -g --parallel=1 random.txt > /dev/null
+real 183.05
+user 182.73
+sys 0.30
+
+$ time -p sort -g --parallel=2 random.txt > /dev/null
+real 100.68
+user 192.01
+sys 0.43
+
+$ time -p sort -g --parallel=4 random.txt > /dev/null
+real 59.36
+user 201.77
+sys 0.93
+
+$ time -p sort -g --parallel=8 random.txt > /dev/null
+real 38.37
+user 203.76
+sys 0.9
+
+
+As expected, the runtime for the sort decreases as the number of threads
+increases, taking around 60% of the runtime when the thread count halfs.
+Sort with one thread takes 183.05 seconds while sort with 8 threads takes 38.87
+seconds, a significant decrease. We see that the time taken for the default
+sort (37.38 seconds) is almost the same as that of the sort with 8 parallel 
+threads (38.37 seconds), giving us a hint that the default sort uses 8 threads.
+We also see that the time spent on system calls increases with increased
+threadcount (more system calls with more threads), while user time increases only
+slightly since this is the total processing time across all CPUs, which will be
+the same since the same code is executed.
