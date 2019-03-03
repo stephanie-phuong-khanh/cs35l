@@ -1,0 +1,25 @@
+Quantum Mech
+* energy and subatomic particles
+* contrast from classical physics - not bound by discrete values
+* probabilities to describe state of particles i.e. electrons
+* energy
+
+Properties
+* superposition  - quantum states added (waves)
+* entanglement - groups of particles describe each others' spin, position, momentum, polarization; separated by large distance; measuring any quantum state has effect of changing a particle's state
+
+Quantum computers
+* will not help us to do regular hardware/software task
+* expensive af - won't replace normal computers - super complex - solve different complicated problems
+* very fast - thousands of times faster than conventional computer
+* search thru and process huge amounts of data - like finding needle in haystack
+* examined 1 trillion possible moves per second during chess game - regular does 200M/second
+* virtual experiments - predict outcome w/o creating unusual conditions in lab -- e.g. recreating chemical reactions
+
+Benefits
+* redefine cyber security -- speed of quantum computers creates changes in field of cryptography and encryption - critical/complex cyber security problems
+* alternate realities (maybe) -- multiverse (problem can have infinite or many probably solutions) -- perform 'n' tasks in 'n' parallel universes
+* quantum realm (?)
+* better power efficiency
+
+
