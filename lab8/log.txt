@@ -1,0 +1,100 @@
+This lab was done with a wireless Beaglebone. I partnered with Andy Huang.
+
+
+
+SETUP:
+
+I flashed my BeagleBone by downloading the image for the BeagleBone:
+'Debian 9.5 018-10-07 4GB SD IoT'. I used the balenaEtcher desktop app
+for MacOS to write the image to a microSD card puchased separately.
+I inserted the microSD card, connected the BeagleBone to my computer,
+and waited for the USRx LED lights to stop flashing which means the
+flashing has completed.
+
+I continued setting up the BeagleBone by following the steps in start.htm.
+After confirming the BealeBone was connected, I downloaded the driver for
+MacOS, ran 'sudo rm -rf /System/Library/Extensions/HoRNDIS.kext' as
+instructed by the instructors, and restarted my computer.
+
+I SSH'd into the BeagleBone and connected it to wifi:
+$   ssh debian@192.168.7.2
+$   temppwd
+$   sudo connmanctl
+$   enable wifi
+$   scan wifi
+$   services
+$   agent on
+$   wifi_506583d4fc5e_544e434150413937414239_managed_psk
+$   3760ClassNet
+$   quit
+
+I found out my BeagleBone's IP address with ifconfig: 169.232.107.152 
+
+Updated database of apt-get (X11 forwarding with xauth and xvfb):
+$   sudo apt-get update
+$   sudo apt-get install xauth
+$   sudo apt-get install xvfb
+
+I downloaded XQuartz desktop application for Mac. Inside /etc/ssh/ssh_config
+and /etc/ssh/sshd_config I made sure X11Forwarding was 'yes' and inside 
+~/.ssh/config ForwardAgent and ForwardX11 is 'yes'.
+
+I installed FireFox on the beaglebone:
+$   sudo apt-get install firefox-esr-l10n-en-gb
+
+
+
+
+
+CLIENT: First, I am client and Andy is server. 
+
+As the client, I copy my public key to Andy's server, whose IP address
+is 169.232.69.48, so I can ssh with key authentication:
+$   ssh-copy-id -i steph@169.232.69.48
+$   (steph user password)
+
+I set up the ssh agent so I can decrypt data with my private key. I enter
+my private key passphrase and add the private key to the auth agent:
+$   eval ssh-agent -s
+$   ssh-add
+
+I ssh into Andy's BeagleBone without need to enter passphrase because I 
+now use key authentication:
+$   ssh steph@169.232.69.48
+
+After being ssh'd into Andy's beaglebone, I created the file hello.txt
+which contained "HAI ANDY!!!", which Andy was able to find and see the
+contents. :)
+
+Then I ssh'd with X11 to log onto Andy's BeagleBone with port forwarding
+(X flag means X11 forwarding):
+$   ssh -X debian@192.168.6.2
+$   temppwd
+$   ssh -X steph@169.232.69.48
+
+Opened xterm and firefox:
+$   xterm
+$   firefox
+
+
+
+
+
+SERVER: Now, I will be server and Andy will be client.
+
+Generated public/private RSA key pairs:
+$   ssh-keygen
+
+Created user for andy:
+$   sudo useradd -d /home/andyh -m andyh
+$   sudo passwd andyh
+
+Inside andyh directory I make the directory:
+$   cd /home/andyh
+$   sudo mkdir .ssh
+
+Gave andy ownership and permission:
+$   sudo chown -R andyh .ssh
+$   sudo chmod 700 .ssh
+
+The setup is done for Andy to act as client.
