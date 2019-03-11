@@ -1,0 +1,34 @@
+1.
+Yes, the network is still secure because the other teams are observing encrypted
+messages, encrypted with the receiver's public key and decrypted only with the
+receiver's private key. The attacker does not have this private key and therefore
+cannot decrypt and read any data encrtyped with the public key. Simply guessing
+the private key is not possible since there is such a large amount of permutations
+that make a private key. Guessing requires infeasible computation.
+
+(1) If other teams tapped my keyboards and observed all my keystrokes, my network
+security might be compromised if at one point I enter the passphrase to set up
+ssh (and encrypt the private key) which allows them to access my server and decrypt
+and understand messages sent to me. However, if the ssh is already set up, there is
+no need to enter in the passphrase, so the observed keystrokes would reveal nothing
+that would allow other teams to log onto my server and decrtypt and read my messages.
+
+(2) Attackers having control over the boot USB would make my network not secure
+because they would be able to access my private key through the .ssh folder and
+then decrypt any encrypted messages sent to me. Even worse, they can change ssh
+files and root passwords without our knowledge or make new user account with 
+superuser priveleges that would take control of our system.
+
+
+
+2.
+The 'gpg2 --verify' does not verify that I created the file. It simply checks if the
+detached signature matches the file. An attacker can still intercept the message (the file),
+alter the message, and sign it using a different public key, generating a new detached
+signature. The gpg command still returns true since the file and detached signature match.
+We have no way of knowing that the data was tampered with and resigned with a foreign public key.
+
+To fix this problem, I host my public key online so that third party certificate authorities
+verify the public keys by tracking who posted it. This allows us to check a user's identity
+by checking against the public keys held by the CA, making sure the data receiver has the correct
+key before accessing data.

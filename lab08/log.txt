@@ -76,6 +76,7 @@ Opened xterm and firefox:
 $   xterm
 $   firefox
 
+I found no difference in behavior when running firefox with ssh -Y.
 
 
 
