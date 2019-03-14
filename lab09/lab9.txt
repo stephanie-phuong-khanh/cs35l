@@ -1,0 +1,273 @@
+1.  Copy Diffutils repo
+     cp -r ~eggert/src/gnu/diffutils .
+
+2.  Log of changes 
+    $   cd diffutils
+    $   git log > git-log.txt
+
+3.  List of tags 
+    $   git tag > git-tags.txt
+
+4.  Find commit message using emacs and show the change by hash using git show
+    $   emacs git-log.txt
+    $   C-s maint: quote 
+    We find its commit hash is 62ca21c8c1a5aa3488589dcb191a4ef04ae9ed4f.
+    $   C-x C-c
+    $   git show 62ca21c8c1a5aa3488589dcb191a4ef04ae9ed4f > quote-patch.txt
+    
+5.  Checkout version 3.0 
+    $   git checkout v3.0 -b change-quotes
+    Switched to a new branch 'change-quotes'
+
+6.  Apply quote-patch.txt
+    $   patch -p1 < quote-patch.txt
+    We skipped past the files to patch by pressing return
+        HACKING
+        doc/diffutils.texi
+        man/help2man
+
+    Errors:
+        patching file README
+        Hunk #1 FAILED at 9.
+        Hunk #3 FAILED at 60.
+        2 out of 3 hunks FAILED -- saving rejects to file README.rej
+
+        patching file README-hacking
+        Hunk #1 FAILED at 19.
+        1 out of 1 hunk FAILED -- saving rejects to file README-hacking.rej
+
+        patching file cfg.mk
+        Hunk #1 FAILED at 29.
+        1 out of 1 hunk FAILED -- saving rejects to file cfg.mk.rej
+
+        patching file src/diff.c
+        Hunk #1 succeeded at 40 with fuzz 2 (offset -2 lines).
+        Hunk #2 succeeded at 57 (offset -2 lines).
+        Hunk #3 succeeded at 92 (offset -2 lines).
+        Hunk #4 succeeded at 330 (offset -10 lines).
+        Hunk #5 succeeded at 505 (offset -10 lines).
+        Hunk #6 succeeded at 534 (offset -10 lines).
+        Hunk #7 succeeded at 585 (offset -14 lines).
+        Hunk #8 succeeded at 744 (offset -14 lines).
+        Hunk #9 succeeded at 826 (offset -14 lines).
+        Hunk #10 FAILED at 876.
+        Hunk #11 FAILED at 906.
+        Hunk #12 FAILED at 942.
+        Hunk #13 succeeded at 960 with fuzz 2 (offset -29 lines).
+        Hunk #14 succeeded at 1159 with fuzz 2 (offset -32 lines).
+        3 out of 14 hunks FAILED -- saving rejects to file src/diff.c.rej
+
+        patching file src/diff3.c
+        Hunk #1 succeeded at 35 (offset 1 line).
+        Hunk #2 succeeded at 159 (offset 1 line).
+        Hunk #3 succeeded at 316 (offset 1 line).
+        Hunk #4 succeeded at 351 (offset 1 line).
+        Hunk #5 succeeded at 412 (offset 1 line).
+        Hunk #6 FAILED at 433.
+        Hunk #7 succeeded at 460 with fuzz 2 (offset -18 lines).
+        Hunk #8 succeeded at 1275 (offset -18 lines).
+        Hunk #9 succeeded at 1475 (offset -18 lines).
+        1 out of 9 hunks FAILED -- saving rejects to file src/diff3.c.rej
+
+
+7.  Overview of changes
+    $   git status
+
+    # On branch change-quotes
+    # Changes not staged for commit:
+    #   (use "git add <file>..." to update what will be committed)
+    #   (use "git checkout -- <file>..." to discard changes in working directory)
+    #
+    #	modified:   NEWS
+    #	modified:   README
+    #	modified:   TODO
+    #	modified:   doc/diagmeet.note
+    #	modified:   ms/config.bat
+    #	modified:   ms/config.site
+    #	modified:   po/en.po
+    #	modified:   src/analyze.c
+    #	modified:   src/cmp.c
+    #	modified:   src/context.c
+    #	modified:   src/diff.c
+    #	modified:   src/diff.h
+    #	modified:   src/diff3.c
+    #	modified:   src/dir.c
+    #	modified:   src/ifdef.c
+    #	modified:   src/io.c
+    #	modified:   src/sdiff.c
+    #	modified:   src/side.c
+    #	modified:   src/system.h
+    #	modified:   src/util.c
+    #	modified:   tests/help-version
+    #
+    # Untracked files:
+    #   (use "git add <file>..." to include in what will be committed)
+    #
+    #	NEWS.orig
+    #	README-hacking.orig
+    #	README-hacking.rej
+    #	README.orig
+    #	README.rej
+    #	cfg.mk.orig
+    #	cfg.mk.rej
+    #	git-log.txt
+    #	git-tags.txt
+    #	ms/config.site.orig
+    #	quote-patch.txt
+    #	src/cmp.c.orig
+    #	src/context.c.orig
+    #	src/diff.c.orig
+    #	src/diff.c.rej
+    #	src/diff.h.orig
+    #	src/diff3.c.orig
+    #	src/diff3.c.rej
+    #	src/dir.c.orig
+    #	src/sdiff.c.orig
+    #	src/system.h.orig
+    #	src/util.c.orig
+    #	tests/help-version.orig
+    no changes added to commit (use "git add" and/or "git commit -a")
+
+8.  Prepare to revert changes using:
+        vc-diff : C-x v =
+        vc-revert : C-x v u
+        diff-apply-hunk : C-c C-a
+
+9.  Go through files
+    Not .c files:
+        emacs FILENAME
+        C-x v u
+        yes Enter
+        C-x C-c
+    Here, FILENAME is:
+        NEWS
+        README
+        TODO
+        doc/diagmeet.note
+        ms/config.bat
+        ms/config.site
+        po/en.po
+        src/diff.h
+        src/system.h
+        tests/help-version
+
+    In .c files, undo everything except changes to character string constants:
+        emacs FILENAME
+        C-x v =
+        C-c C-a         // to keep change
+        C-u C-c C-a     // to undo change
+        C-x C-c y
+    Here, FILENAME is:
+        src/analyze.c
+        src/cmp.c       //change
+        src/context.c
+        src/diff.c      //change
+        src/diff3.c     //change
+    	src/dir.c       //change
+        src/ifdef.c
+        src/io.c
+        src/sdiff.c     //change
+        src/side.c
+        src/util.c      //change
+        
+10. Copy and paste rejected patches
+    I used the command 'find src/*.c.rej' and found that I had to examine src/diff3.c.rej
+    and src/diff.c.rej. I went into the diff.c and diff3 files and manually replaced the
+    backticks ` with '
+
+    emacs FILENAME
+    C-s ` Enter Backspace '
+
+11. git status outputted:
+    # On branch change-quotes
+    # Changes not staged for commit:
+    #   (use "git add <file>..." to update what will be committed)
+    #   (use "git checkout -- <file>..." to discard changes in working directory)
+    #
+    #	modified:   src/cmp.c
+    #	modified:   src/diff.c
+    #	modified:   src/diff3.c
+    #	modified:   src/dir.c
+    #	modified:   src/sdiff.c
+    #	modified:   src/util.c
+    #
+    # Untracked files:
+    #   (use "git add <file>..." to include in what will be committed)
+    #
+    #	NEWS.orig
+    #	README-hacking.orig
+    #	README-hacking.rej
+    #	README.orig
+    #	README.rej
+    #	cfg.mk.orig
+    #	cfg.mk.rej
+    #	git-log.txt
+    #	git-tags.txt
+    #	ms/config.site.orig
+    #	quote-patch.txt
+    #	src/#diff3.c#
+    #	src/cmp.c.orig
+    #	src/context.c.orig
+    #	src/diff.c.orig
+    #	src/diff.c.rej
+    #	src/diff.h.orig
+    #	src/diff3.c.orig
+    #	src/diff3.c.rej
+    #	src/dir.c.orig
+    #	src/sdiff.c.orig
+    #	src/system.h.orig
+    #	src/util.c.orig
+    #	tests/help-version.orig
+    no changes added to commit (use "git add" and/or "git commit -a")
+
+    Remove untracked files:
+    $   git clean -f
+
+    Record patch file:
+    $   git diff > quote-3.0-patch.txt
+
+13. Build diffutils:
+    $   ./bootstrap
+
+    Check version of glibc
+    $   ldd --version
+    ldd (GNU libc) 2.17
+
+    We apply the patch linked in the spec:
+    $   wget https://web.cs.ucla.edu/classes/winter19/cs35L/assign/diffutils-gets.diff
+    $   patch -p0 < diffutils-gets.diff
+
+    Continue build:
+    $   ./configure
+    $   make
+
+    Check diffutils works. This command is supposed to output error that we
+    cannot compare '-' to directory:
+    $   ./src/diff . -
+    ./src/diff: cannot compare '-' to a directory
+    This is correct because there are two ' instead of `-' like before.
+
+    We can also tell if the patch works by making sure that diff's help message
+    does not contain any back ticks.
+    $   ./src/diff --help | grep "[\`]"
+    No output, so no backticks found.
+
+14. Sanity test
+    Make the folders
+    $   mkdir diffutils-3.0
+    $   mkdir diffutils-3.0-patch
+
+    Copy contents of the src folder (our patched code):
+    $   cp -r src/*.c diffutils-3.0-patch
+    Copy original (unpatched) code:
+    $   cp -r ~eggert/src/gnu/diffutils/src/*.c diffutils-3.0
+
+    Run command as provided on spec:
+    $   ./src/diff -pru diffutils-3.0 diffutils-3.0-patch > quote-3.0-test.txt
+
+15. Compare quote-3.0-test.txt and quote-3.0-patch.txt:
+    $   diff quote-3.0-test.txt quote-3.0-patch.txt
+
+    The output is very long meaning there are many changes, but the changes
+    are mainly replacing ` with ' or inconsequential format changes. Since the
+    changes are innocuous, we can conclude the patch worked.

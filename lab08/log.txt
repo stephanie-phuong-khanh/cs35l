@@ -75,7 +75,9 @@ $   ssh -X steph@169.232.69.48
 Opened xterm and firefox:
 $   xterm
 $   firefox
-
+ 
+The -X flag enables X11 forwarding, subjected to X11 security extensions
+restrictions. The -Y flag enables trusted X11 forwarding. While testing,
 I found no difference in behavior when running firefox with ssh -Y.
 
 

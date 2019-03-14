@@ -1,0 +1,4626 @@
+diff -pru diffutils-3.0/analyze.c diffutils-3.0-patch/analyze.c
+--- diffutils-3.0/analyze.c	2019-03-14 01:40:58.348498000 -0700
++++ diffutils-3.0-patch/analyze.c	2019-03-14 01:40:51.257033000 -0700
+@@ -1,7 +1,7 @@
+ /* Analyze file differences for GNU DIFF.
+ 
+    Copyright (C) 1988-1989, 1992-1995, 1998, 2001-2002, 2004, 2006-2007,
+-   2009-2013, 2015-2017 Free Software Foundation, Inc.
++   2009-2010 Free Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -38,7 +38,7 @@
+ 
+    A line which is discarded will not be considered by the actual
+    comparison algorithm; it will be as if that line were not in the file.
+-   The file's 'realindexes' table maps virtual line numbers
++   The file's `realindexes' table maps virtual line numbers
+    (which don't count the discarded lines) into real line numbers;
+    this is how the actual comparison algorithm produces results
+    that are comprehensible when the discarded lines are counted.
+@@ -251,7 +251,7 @@ discard_confusing_lines (struct file_dat
+    We do something when a run of changed lines include a
+    line at one end and have an excluded, identical line at the other.
+    We are free to choose which identical line is included.
+-   'compareseq' usually chooses the one at the beginning,
++   `compareseq' usually chooses the one at the beginning,
+    but usually it is cleaner to consider the following identical line
+    to be the "change".  */
+ 
+@@ -445,16 +445,26 @@ build_script (struct file_data const fil
+   return script;
+ }
+ 
+-/* If CHANGES, briefly report that two files differed.  */
+-static void
++/* If CHANGES, briefly report that two files differed.
++   Return 2 if trouble, CHANGES otherwise.  */
++static int
+ briefly_report (int changes, struct file_data const filevec[])
+ {
+   if (changes)
+-    message ((brief
+-	      ? _("Files %s and %s differ\n")
+-	      : _("Binary files %s and %s differ\n")),
+-	     file_label[0] ? file_label[0] : filevec[0].name,
+-	     file_label[1] ? file_label[1] : filevec[1].name);
++    {
++      char const *label0 = file_label[0] ? file_label[0] : filevec[0].name;
++      char const *label1 = file_label[1] ? file_label[1] : filevec[1].name;
++
++      if (brief)
++	message ("Files %s and %s differ\n", label0, label1);
++      else
++	{
++	  message ("Binary files %s and %s differ\n", label0, label1);
++	  changes = 2;
++	}
++    }
++
++  return changes;
+ }
+ 
+ /* Report the differences of two files.  */
+@@ -477,8 +487,6 @@ diff_2_files (struct comparison *cmp)
+     {
+       /* Files with different lengths must be different.  */
+       if (cmp->file[0].stat.st_size != cmp->file[1].stat.st_size
+-	  && 0 < cmp->file[0].stat.st_size
+-	  && 0 < cmp->file[1].stat.st_size
+ 	  && (cmp->file[0].desc < 0 || S_ISREG (cmp->file[0].stat.st_mode))
+ 	  && (cmp->file[1].desc < 0 || S_ISREG (cmp->file[1].stat.st_mode)))
+ 	changes = 1;
+@@ -528,7 +536,7 @@ diff_2_files (struct comparison *cmp)
+ 	    }
+ 	}
+ 
+-      briefly_report (changes, cmp->file);
++      changes = briefly_report (changes, cmp->file);
+     }
+   else
+     {
+@@ -566,13 +574,12 @@ diff_2_files (struct comparison *cmp)
+ 
+       ctxt.heuristic = speed_large_files;
+ 
+-      /* Set TOO_EXPENSIVE to be the approximate square root of the
+-	 input size, bounded below by 4096.  4096 seems to be good for
+-	 circa-2016 CPUs; see Bug#16848 and Bug#24715.  */
++      /* Set TOO_EXPENSIVE to be approximate square root of input size,
++	 bounded below by 256.  */
+       too_expensive = 1;
+       for (;  diags != 0;  diags >>= 2)
+ 	too_expensive <<= 1;
+-      ctxt.too_expensive = MAX (4096, too_expensive);
++      ctxt.too_expensive = MAX (256, too_expensive);
+ 
+       files[0] = cmp->file[0];
+       files[1] = cmp->file[1];
+@@ -588,7 +595,7 @@ diff_2_files (struct comparison *cmp)
+       shift_boundaries (cmp->file);
+ 
+       /* Get the results of comparison in the form of a chain
+-	 of 'struct change's -- an edit script.  */
++	 of `struct change's -- an edit script.  */
+ 
+       if (output_style == OUTPUT_ED)
+ 	script = build_reverse_script (cmp->file);
+@@ -628,7 +635,7 @@ diff_2_files (struct comparison *cmp)
+ 	changes = (script != 0);
+ 
+       if (brief)
+-	briefly_report (changes, cmp->file);
++	changes = briefly_report (changes, cmp->file);
+       else
+ 	{
+ 	  if (changes || !no_diff_means_no_output)
+diff -pru diffutils-3.0/cmp.c diffutils-3.0-patch/cmp.c
+--- diffutils-3.0/cmp.c	2019-03-14 01:40:58.351495000 -0700
++++ diffutils-3.0-patch/cmp.c	2019-03-14 01:40:51.262028000 -0700
+@@ -1,7 +1,7 @@
+ /* cmp - compare two files byte by byte
+ 
+-   Copyright (C) 1990-1996, 1998, 2001-2002, 2004, 2006-2007, 2009-2013,
+-   2015-2017 Free Software Foundation, Inc.
++   Copyright (C) 1990-1996, 1998, 2001-2002, 2004, 2006-2007, 2009-2010 Free
++   Software Foundation, Inc.
+ 
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+@@ -23,7 +23,6 @@
+ 
+ #include <c-stack.h>
+ #include <cmpbuf.h>
+-#include "die.h"
+ #include <error.h>
+ #include <exitfail.h>
+ #include <file-type.h>
+@@ -34,10 +33,10 @@
+ #include <unlocked-io.h>
+ #include <version-etc.h>
+ #include <xalloc.h>
+-#include <binary-io.h>
++#include <xfreopen.h>
+ #include <xstrtol.h>
+ 
+-/* The official name of this program (e.g., no 'g' prefix).  */
++/* The official name of this program (e.g., no `g' prefix).  */
+ #define PROGRAM_NAME "cmp"
+ 
+ #define AUTHORS \
+@@ -52,8 +51,8 @@
+ 
+ static int cmp (void);
+ static off_t file_position (int);
+-static size_t block_compare (word const *, word const *) _GL_ATTRIBUTE_PURE;
+-static size_t count_newlines (char *, size_t);
++static size_t block_compare (word const *, word const *);
++static size_t block_compare_and_count (word const *, word const *, off_t *);
+ static void sprintc (char *, unsigned char);
+ 
+ /* Filenames of the compared files.  */
+@@ -115,8 +114,9 @@ try_help (char const *reason_msgid, char
+ {
+   if (reason_msgid)
+     error (0, 0, _(reason_msgid), operand);
+-  die (EXIT_TROUBLE, 0,
++  error (EXIT_TROUBLE, 0,
+ 	 _("Try '%s --help' for more information."), program_name);
++  abort ();
+ }
+ 
+ static char const valid_suffixes[] = "kKMGTPEZY0";
+@@ -152,21 +152,21 @@ static void
+ check_stdout (void)
+ {
+   if (ferror (stdout))
+-    die (EXIT_TROUBLE, 0, "%s", _("write failed"));
++    error (EXIT_TROUBLE, 0, "%s", _("write failed"));
+   else if (fclose (stdout) != 0)
+-    die (EXIT_TROUBLE, errno, "%s", _("standard output"));
++    error (EXIT_TROUBLE, errno, "%s", _("standard output"));
+ }
+ 
+ static char const * const option_help_msgid[] = {
+-  N_("-b, --print-bytes          print differing bytes"),
+-  N_("-i, --ignore-initial=SKIP         skip first SKIP bytes of both inputs"),
+-  N_("-i, --ignore-initial=SKIP1:SKIP2  skip first SKIP1 bytes of FILE1 and\n"
+-     "                                      first SKIP2 bytes of FILE2"),
+-  N_("-l, --verbose              output byte numbers and differing byte values"),
+-  N_("-n, --bytes=LIMIT          compare at most LIMIT bytes"),
+-  N_("-s, --quiet, --silent      suppress all normal output"),
+-  N_("    --help                 display this help and exit"),
+-  N_("-v, --version              output version information and exit"),
++  N_("-b  --print-bytes  Print differing bytes."),
++  N_("-i SKIP  --ignore-initial=SKIP  Skip the first SKIP bytes of input."),
++  N_("-i SKIP1:SKIP2  --ignore-initial=SKIP1:SKIP2"),
++  N_("  Skip the first SKIP1 bytes of FILE1 and the first SKIP2 bytes of FILE2."),
++  N_("-l  --verbose  Output byte numbers and values of all differing bytes."),
++  N_("-n LIMIT  --bytes=LIMIT  Compare at most LIMIT bytes."),
++  N_("-s  --quiet  --silent  Output nothing; yield exit status only."),
++  N_("-v  --version  Output version info."),
++  N_("--help  Output this help."),
+   0
+ };
+ 
+@@ -177,17 +177,11 @@ usage (void)
+ 
+   printf (_("Usage: %s [OPTION]... FILE1 [FILE2 [SKIP1 [SKIP2]]]\n"),
+ 	  program_name);
+-  printf ("%s\n", _("Compare two files byte by byte."));
+-  printf ("\n%s\n\n",
+-_("The optional SKIP1 and SKIP2 specify the number of bytes to skip\n"
+-  "at the beginning of each file (zero by default)."));
+-
+-  fputs (_("\
+-Mandatory arguments to long options are mandatory for short options too.\n\
+-"), stdout);
++  printf ("%s\n\n", _("Compare two files byte by byte."));
+   for (p = option_help_msgid;  *p;  p++)
+     printf ("  %s\n", _(*p));
+-  printf ("\n%s\n\n%s\n%s\n",
++  printf ("\n%s\n%s\n\n%s\n%s\n",
++	  _("SKIP1 and SKIP2 are the number of bytes to skip in each file."),
+ 	  _("SKIP values may be followed by the following multiplicative suffixes:\n\
+ kB 1000, K 1024, MB 1,000,000, M 1,048,576,\n\
+ GB 1,000,000,000, G 1,073,741,824, and so on for T, P, E, Z, Y."),
+@@ -248,7 +242,7 @@ main (int argc, char **argv)
+ 	break;
+ 
+       case 'v':
+-	version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, Version,
++	version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, PACKAGE_VERSION,
+ 		     AUTHORS, (char *) NULL);
+ 	check_stdout ();
+ 	return EXIT_SUCCESS;
+@@ -293,7 +287,7 @@ main (int argc, char **argv)
+ 	{
+ 	  file_desc[f1] = STDIN_FILENO;
+ 	  if (O_BINARY && ! isatty (STDIN_FILENO))
+-	    set_binary_mode (STDIN_FILENO, O_BINARY);
++	    xfreopen (NULL, "rb", stdin);
+ 	}
+       else
+ 	file_desc[f1] = open (file[f1], O_RDONLY | O_BINARY, 0);
+@@ -303,7 +297,7 @@ main (int argc, char **argv)
+ 	  if (file_desc[f1] < 0 && comparison_type == type_status)
+ 	    exit (EXIT_TROUBLE);
+ 	  else
+-	    die (EXIT_TROUBLE, errno, "%s", file[f1]);
++	    error (EXIT_TROUBLE, errno, "%s", file[f1]);
+ 	}
+     }
+ 
+@@ -363,28 +357,27 @@ main (int argc, char **argv)
+ 
+   for (f = 0; f < 2; f++)
+     if (close (file_desc[f]) != 0)
+-      die (EXIT_TROUBLE, errno, "%s", file[f]);
++      error (EXIT_TROUBLE, errno, "%s", file[f]);
+   if (exit_status != EXIT_SUCCESS && comparison_type < type_no_stdout)
+     check_stdout ();
+   exit (exit_status);
+   return exit_status;
+ }
+ 
+-/* Compare the two files already open on 'file_desc[0]' and 'file_desc[1]',
+-   using 'buffer[0]' and 'buffer[1]'.
++/* Compare the two files already open on `file_desc[0]' and `file_desc[1]',
++   using `buffer[0]' and `buffer[1]'.
+    Return EXIT_SUCCESS if identical, EXIT_FAILURE if different,
+    >1 if error.  */
+ 
+ static int
+ cmp (void)
+ {
+-  bool at_line_start = true;
+   off_t line_number = 1;	/* Line number (1...) of difference. */
+   off_t byte_number = 1;	/* Byte number (1...) of difference. */
+   uintmax_t remaining = bytes;	/* Remaining number of bytes to compare.  */
+   size_t read0, read1;		/* Number of bytes read from each file. */
+   size_t first_diff;		/* Offset (0...) in buffers of 1st diff. */
+-  size_t smaller;		/* The lesser of 'read0' and 'read1'. */
++  size_t smaller;		/* The lesser of `read0' and `read1'. */
+   word *buffer0 = buffer[0];
+   word *buffer1 = buffer[1];
+   char *buf0 = (char *) buffer0;
+@@ -422,7 +415,7 @@ cmp (void)
+ 	      if (r != bytes_to_read)
+ 		{
+ 		  if (r == SIZE_MAX)
+-		    die (EXIT_TROUBLE, errno, "%s", file[f]);
++		    error (EXIT_TROUBLE, errno, "%s", file[f]);
+ 		  break;
+ 		}
+ 	      ig -= r;
+@@ -444,31 +437,25 @@ cmp (void)
+ 
+       read0 = block_read (file_desc[0], buf0, bytes_to_read);
+       if (read0 == SIZE_MAX)
+-	die (EXIT_TROUBLE, errno, "%s", file[0]);
++	error (EXIT_TROUBLE, errno, "%s", file[0]);
+       read1 = block_read (file_desc[1], buf1, bytes_to_read);
+       if (read1 == SIZE_MAX)
+-	die (EXIT_TROUBLE, errno, "%s", file[1]);
++	error (EXIT_TROUBLE, errno, "%s", file[1]);
+ 
+-      smaller = MIN (read0, read1);
++      /* Insert sentinels for the block compare.  */
+ 
+-      /* Optimize the common case where the buffers are the same.  */
+-      if (memcmp (buf0, buf1, smaller) == 0)
+-	first_diff = smaller;
+-      else
+-	{
+-	  /* Insert sentinels for the block compare.  */
+-	  buf0[read0] = ~buf1[read0];
+-	  buf1[read1] = ~buf0[read1];
++      buf0[read0] = ~buf1[read0];
++      buf1[read1] = ~buf0[read1];
+ 
+-	  first_diff = block_compare (buffer0, buffer1);
+-	}
++      /* If the line number should be written for differing files,
++	 compare the blocks and count the number of newlines
++	 simultaneously.  */
++      first_diff = (comparison_type == type_first_diff
++		    ? block_compare_and_count (buffer0, buffer1, &line_number)
++		    : block_compare (buffer0, buffer1));
+ 
+       byte_number += first_diff;
+-      if (comparison_type == type_first_diff && first_diff != 0)
+-	{
+-	  line_number += count_newlines (buf0, first_diff);
+-	  at_line_start = buf0[first_diff - 1] == '\n';
+-	}
++      smaller = MIN (read0, read1);
+ 
+       if (first_diff < smaller)
+ 	{
+@@ -482,9 +469,9 @@ cmp (void)
+ 		char const *line_num = offtostr (line_number, line_buf);
+ 		if (!opt_print_bytes)
+ 		  {
+-		    /* See POSIX for this format.  This message is
+-		       used only in the POSIX locale, so it need not
+-		       be translated.  */
++		    /* See POSIX 1003.1-2001 for this format.  This
++		       message is used only in the POSIX locale, so it
++		       need not be translated.  */
+ 		    static char const char_message[] =
+ 		      "%s %s differ: char %s, line %s\n";
+ 
+@@ -514,9 +501,9 @@ cmp (void)
+ 		    printf (_("%s %s differ: byte %s, line %s is %3o %s %3o %s\n"),
+ 			    file[0], file[1], byte_num, line_num,
+ 			    c0, s0, c1, s1);
+-		  }
++		}
+ 	      }
+-	      FALLTHROUGH;
++	      /* Fall through.  */
+ 	    case type_status:
+ 	      return EXIT_FAILURE;
+ 
+@@ -531,7 +518,7 @@ cmp (void)
+ 		      char const *byte_num = offtostr (byte_number, byte_buf);
+ 		      if (!opt_print_bytes)
+ 			{
+-			  /* See POSIX for this format.  */
++			  /* See POSIX 1003.1-2001 for this format.  */
+ 			  printf ("%*s %3o %3o\n",
+ 				  offset_width, byte_num, c0, c1);
+ 			}
+@@ -562,36 +549,8 @@ cmp (void)
+ 	{
+ 	  if (differing <= 0 && comparison_type != type_status)
+ 	    {
+-	      char const *shorter_file = file[read1 < read0];
+-
+-	      /* POSIX says that each of these format strings must be
+-		 "cmp: EOF on %s", optionally followed by a blank and
+-		 extra text sans newline, then terminated by "\n".  */
+-	      if (byte_number == 1)
+-		fprintf (stderr, _("cmp: EOF on %s which is empty\n"),
+-			 shorter_file);
+-	      else
+-		{
+-		  char byte_buf[INT_BUFSIZE_BOUND (off_t)];
+-		  char const *byte_num = offtostr (byte_number - 1, byte_buf);
+-
+-		  if (comparison_type == type_first_diff)
+-		    {
+-		      char line_buf[INT_BUFSIZE_BOUND (off_t)];
+-		      char const *line_num
+-			= offtostr (line_number - at_line_start, line_buf);
+-		      fprintf (stderr,
+-			       (at_line_start
+-				? _("cmp: EOF on %s after byte %s, line %s\n")
+-				: _("cmp: EOF on %s after byte %s,"
+-				    " in line %s\n")),
+-			       shorter_file, byte_num, line_num);
+-		    }
+-		  else
+-		    fprintf (stderr,
+-			     _("cmp: EOF on %s after byte %s\n"),
+-			     shorter_file, byte_num);
+-		}
++	      /* See POSIX 1003.1-2001 for this format.  */
++	      fprintf (stderr, _("cmp: EOF on %s\n"), file[read1 < read0]);
+ 	    }
+ 
+ 	  return EXIT_FAILURE;
+@@ -602,6 +561,54 @@ cmp (void)
+   return differing == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+ }
+ 
++/* Compare two blocks of memory P0 and P1 until they differ,
++   and count the number of '\n' occurrences in the common
++   part of P0 and P1.
++   If the blocks are not guaranteed to be different, put sentinels at the ends
++   of the blocks before calling this function.
++
++   Return the offset of the first byte that differs.
++   Increment *COUNT by the count of '\n' occurrences.  */
++
++static size_t
++block_compare_and_count (word const *p0, word const *p1, off_t *count)
++{
++  word l;		/* One word from first buffer. */
++  word const *l0, *l1;	/* Pointers into each buffer. */
++  char const *c0, *c1;	/* Pointers for finding exact address. */
++  size_t cnt = 0;	/* Number of '\n' occurrences. */
++  word nnnn;		/* Newline, sizeof (word) times.  */
++  int i;
++
++  nnnn = 0;
++  for (i = 0; i < sizeof nnnn; i++)
++    nnnn = (nnnn << CHAR_BIT) | '\n';
++
++  /* Find the rough position of the first difference by reading words,
++     not bytes.  */
++
++  for (l0 = p0, l1 = p1;  (l = *l0) == *l1;  l0++, l1++)
++    {
++      l ^= nnnn;
++      for (i = 0; i < sizeof l; i++)
++	{
++	  unsigned char uc = l;
++	  cnt += ! uc;
++	  l >>= CHAR_BIT;
++	}
++    }
++
++  /* Find the exact differing position (endianness independent).  */
++
++  for (c0 = (char const *) l0, c1 = (char const *) l1;
++       *c0 == *c1;
++       c0++, c1++)
++    cnt += *c0 == '\n';
++
++  *count += cnt;
++  return c0 - (char const *) p0;
++}
++
+ /* Compare two blocks of memory P0 and P1 until they differ.
+    If the blocks are not guaranteed to be different, put sentinels at the ends
+    of the blocks before calling this function.
+@@ -630,21 +637,6 @@ block_compare (word const *p0, word cons
+   return c0 - (char const *) p0;
+ }
+ 
+-/* Return the number of newlines in BUF, of size BUFSIZE,
+-   where BUF[NBYTES] is available for use as a sentinel.  */
+-
+-static size_t
+-count_newlines (char *buf, size_t bufsize)
+-{
+-  size_t count = 0;
+-  char *p;
+-  char *lim = buf + bufsize;
+-  *lim = '\n';
+-  for (p = buf; (p = rawmemchr (p, '\n')) != lim; p++)
+-    count++;
+-  return count;
+-}
+-
+ /* Put into BUF the unsigned char C, making unprintable bytes
+    visible by quoting like cat -t does.  */
+ 
+diff -pru diffutils-3.0/context.c diffutils-3.0-patch/context.c
+--- diffutils-3.0/context.c	2019-03-14 01:40:58.355490000 -0700
++++ diffutils-3.0-patch/context.c	2019-03-14 01:40:51.272028000 -0700
+@@ -1,7 +1,7 @@
+ /* Context-format output routines for GNU DIFF.
+ 
+-   Copyright (C) 1988-1989, 1991-1995, 1998, 2001-2002, 2004, 2006, 2009-2013,
+-   2015-2017 Free Software Foundation, Inc.
++   Copyright (C) 1988-1989, 1991-1995, 1998, 2001-2002, 2004, 2006, 2009-2010
++   Free Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -20,6 +20,7 @@
+ 
+ #include "diff.h"
+ #include "c-ctype.h"
++#include <inttostr.h>
+ #include <stat-time.h>
+ #include <strftime.h>
+ 
+@@ -40,7 +41,6 @@ static lin find_function_last_match;
+ static void
+ print_context_label (char const *mark,
+ 		     struct file_data *inf,
+-		     char const *name,
+ 		     char const *label)
+ {
+   if (label)
+@@ -71,27 +71,25 @@ print_context_label (char const *mark,
+ 	      sprintf (buf, "%"PRIuMAX".%.9d", sec, nsec);
+ 	    }
+ 	}
+-      fprintf (outfile, "%s %s\t%s\n", mark, name, buf);
++      fprintf (outfile, "%s %s\t%s\n", mark, inf->name, buf);
+     }
+ }
+ 
+ /* Print a header for a context diff, with the file names and dates.  */
+ 
+ void
+-print_context_header (struct file_data inf[], char const *const *names, bool unidiff)
++print_context_header (struct file_data inf[], bool unidiff)
+ {
+-  set_color_context (HEADER_CONTEXT);
+   if (unidiff)
+     {
+-      print_context_label ("---", &inf[0], names[0], file_label[0]);
+-      print_context_label ("+++", &inf[1], names[1], file_label[1]);
++      print_context_label ("---", &inf[0], file_label[0]);
++      print_context_label ("+++", &inf[1], file_label[1]);
+     }
+   else
+     {
+-      print_context_label ("***", &inf[0], names[0], file_label[0]);
+-      print_context_label ("---", &inf[1], names[1], file_label[1]);
++      print_context_label ("***", &inf[0], file_label[0]);
++      print_context_label ("---", &inf[1], file_label[1]);
+     }
+-  set_color_context (RESET_CONTEXT);
+ }
+ 
+ /* Print an edit script in context format.  */
+@@ -126,7 +124,7 @@ print_context_script (struct change *scr
+ static void
+ print_context_number_range (struct file_data const *file, lin a, lin b)
+ {
+-  printint trans_a, trans_b;
++  long int trans_a, trans_b;
+   translate_range (file, a, b, &trans_a, &trans_b);
+ 
+   /* We can have B <= A in the case of a range of no lines.
+@@ -139,9 +137,9 @@ print_context_number_range (struct file_
+      specification.  */
+ 
+   if (trans_b <= trans_a)
+-    fprintf (outfile, "%"pI"d", trans_b);
++    fprintf (outfile, "%ld", trans_b);
+   else
+-    fprintf (outfile, "%"pI"d,%"pI"d", trans_a, trans_b);
++    fprintf (outfile, "%ld,%ld", trans_a, trans_b);
+ }
+ 
+ /* Print FUNCTION in a context header.  */
+@@ -161,7 +159,7 @@ print_context_function (FILE *out, char
+ 
+ /* Print a portion of an edit script in context format.
+    HUNK is the beginning of the portion to be printed.
+-   The end is marked by a 'link' that has been nulled out.
++   The end is marked by a `link' that has been nulled out.
+ 
+    Prints out lines from both files, and precedes each
+    line with the appropriate flag-character.  */
+@@ -207,21 +205,14 @@ pr_context_hunk (struct change *hunk)
+   if (function)
+     print_context_function (out, function);
+ 
+-  putc ('\n', out);
+-  set_color_context (LINE_NUMBER_CONTEXT);
+-  fputs ("*** ", out);
++  fputs ("\n*** ", out);
+   print_context_number_range (&files[0], first0, last0);
+-  fputs (" ****", out);
+-  set_color_context (RESET_CONTEXT);
+-  putc ('\n', out);
++  fputs (" ****\n", out);
+ 
+   if (changes & OLD)
+     {
+       struct change *next = hunk;
+ 
+-      if (first0 <= last0)
+-        set_color_context (DELETE_CONTEXT);
+-
+       for (i = first0; i <= last0; i++)
+ 	{
+ 	  /* Skip past changes that apply (in file 0)
+@@ -234,34 +225,23 @@ pr_context_hunk (struct change *hunk)
+ 
+ 	  prefix = " ";
+ 	  if (next && next->line0 <= i)
+-            {
+-              /* The change NEXT covers this line.
+-                 If lines were inserted here in file 1, this is "changed".
+-                 Otherwise it is "deleted".  */
+-              prefix = (next->inserted > 0 ? "!" : "-");
+-            }
+-	  print_1_line_nl (prefix, &files[0].linbuf[i], true);
+-          if (i == last0)
+-            set_color_context (RESET_CONTEXT);
+-          if (files[0].linbuf[i + 1][-1] == '\n')
+-            putc ('\n', out);
++	    /* The change NEXT covers this line.
++	       If lines were inserted here in file 1, this is "changed".
++	       Otherwise it is "deleted".  */
++	    prefix = (next->inserted > 0 ? "!" : "-");
++
++	  print_1_line (prefix, &files[0].linbuf[i]);
+ 	}
+     }
+ 
+-  set_color_context (LINE_NUMBER_CONTEXT);
+   fputs ("--- ", out);
+   print_context_number_range (&files[1], first1, last1);
+-  fputs (" ----", out);
+-  set_color_context (RESET_CONTEXT);
+-  putc ('\n', out);
++  fputs (" ----\n", out);
+ 
+   if (changes & NEW)
+     {
+       struct change *next = hunk;
+ 
+-      if (first1 <= last1)
+-        set_color_context (ADD_CONTEXT);
+-
+       for (i = first1; i <= last1; i++)
+ 	{
+ 	  /* Skip past changes that apply (in file 1)
+@@ -274,17 +254,12 @@ pr_context_hunk (struct change *hunk)
+ 
+ 	  prefix = " ";
+ 	  if (next && next->line1 <= i)
+-            {
+-              /* The change NEXT covers this line.
+-                 If lines were deleted here in file 0, this is "changed".
+-                 Otherwise it is "inserted".  */
+-              prefix = (next->deleted > 0 ? "!" : "+");
+-            }
+-	  print_1_line_nl (prefix, &files[1].linbuf[i], true);
+-          if (i == last1)
+-            set_color_context (RESET_CONTEXT);
+-          if (files[1].linbuf[i + 1][-1] == '\n')
+-            putc ('\n', out);
++	    /* The change NEXT covers this line.
++	       If lines were deleted here in file 0, this is "changed".
++	       Otherwise it is "inserted".  */
++	    prefix = (next->deleted > 0 ? "!" : "+");
++
++	  print_1_line (prefix, &files[1].linbuf[i]);
+ 	}
+     }
+ }
+@@ -299,7 +274,7 @@ pr_context_hunk (struct change *hunk)
+ static void
+ print_unidiff_number_range (struct file_data const *file, lin a, lin b)
+ {
+-  printint trans_a, trans_b;
++  long int trans_a, trans_b;
+   translate_range (file, a, b, &trans_a, &trans_b);
+ 
+   /* We can have B < A in the case of a range of no lines.
+@@ -307,14 +282,14 @@ print_unidiff_number_range (struct file_
+      which is B.  It would be more logical to print A, but
+      'patch' expects B in order to detect diffs against empty files.  */
+   if (trans_b <= trans_a)
+-    fprintf (outfile, trans_b < trans_a ? "%"pI"d,0" : "%"pI"d", trans_b);
++    fprintf (outfile, trans_b < trans_a ? "%ld,0" : "%ld", trans_b);
+   else
+-    fprintf (outfile, "%"pI"d,%"pI"d", trans_a, trans_b - trans_a + 1);
++    fprintf (outfile, "%ld,%ld", trans_a, trans_b - trans_a + 1);
+ }
+ 
+ /* Print a portion of an edit script in unidiff format.
+    HUNK is the beginning of the portion to be printed.
+-   The end is marked by a 'link' that has been nulled out.
++   The end is marked by a `link' that has been nulled out.
+ 
+    Prints out lines from both files, and precedes each
+    line with the appropriate flag-character.  */
+@@ -355,13 +330,11 @@ pr_unidiff_hunk (struct change *hunk)
+   begin_output ();
+   out = outfile;
+ 
+-  set_color_context (LINE_NUMBER_CONTEXT);
+   fputs ("@@ -", out);
+   print_unidiff_number_range (&files[0], first0, last0);
+   fputs (" +", out);
+   print_unidiff_number_range (&files[1], first1, last1);
+   fputs (" @@", out);
+-  set_color_context (RESET_CONTEXT);
+ 
+   if (function)
+     print_context_function (out, function);
+@@ -390,43 +363,25 @@ pr_unidiff_hunk (struct change *hunk)
+ 	  /* For each difference, first output the deleted part. */
+ 
+ 	  k = next->deleted;
+-          if (k)
+-            set_color_context (DELETE_CONTEXT);
+-
+ 	  while (k--)
+ 	    {
+ 	      char const * const *line = &files[0].linbuf[i++];
+ 	      putc ('-', out);
+ 	      if (initial_tab && ! (suppress_blank_empty && **line == '\n'))
+ 		putc ('\t', out);
+-	      print_1_line_nl (NULL, line, true);
+-
+-              if (!k)
+-                set_color_context (RESET_CONTEXT);
+-
+-              if (line[1][-1] == '\n')
+-                putc ('\n', out);
++	      print_1_line (NULL, line);
+ 	    }
+ 
+ 	  /* Then output the inserted part. */
+ 
+ 	  k = next->inserted;
+-          if (k)
+-            set_color_context (ADD_CONTEXT);
+-
+-          while (k--)
++	  while (k--)
+ 	    {
+ 	      char const * const *line = &files[1].linbuf[j++];
+ 	      putc ('+', out);
+ 	      if (initial_tab && ! (suppress_blank_empty && **line == '\n'))
+ 		putc ('\t', out);
+-	      print_1_line_nl (NULL, line, true);
+-
+-              if (!k)
+-                set_color_context (RESET_CONTEXT);
+-
+-              if (line[1][-1] == '\n')
+-                putc ('\n', out);
++	      print_1_line (NULL, line);
+ 	    }
+ 
+ 	  /* We're done with this hunk, so on to the next! */
+@@ -438,20 +393,21 @@ pr_unidiff_hunk (struct change *hunk)
+ 
+ /* Scan a (forward-ordered) edit script for the first place that more than
+    2*CONTEXT unchanged lines appear, and return a pointer
+-   to the 'struct change' for the last change before those lines.  */
++   to the `struct change' for the last change before those lines.  */
+ 
+-static struct change * _GL_ATTRIBUTE_PURE
++static struct change *
+ find_hunk (struct change *start)
+ {
+   struct change *prev;
+   lin top0, top1;
+   lin thresh;
+ 
+-  /* Threshold distance is CONTEXT if the second change is ignorable,
+-     2 * CONTEXT + 1 otherwise.  Integer overflow can't happen, due
+-     to CONTEXT_LIM.  */
++  /* Threshold distance is 2 * CONTEXT + 1 between two non-ignorable
++     changes, but only CONTEXT if one is ignorable.  Watch out for
++     integer overflow, though.  */
++  lin non_ignorable_threshold =
++    (LIN_MAX - 1) / 2 < context ? LIN_MAX : 2 * context + 1;
+   lin ignorable_threshold = context;
+-  lin non_ignorable_threshold = 2 * context + 1;
+ 
+   do
+     {
+@@ -460,7 +416,7 @@ find_hunk (struct change *start)
+       top1 = start->line1 + start->inserted;
+       prev = start;
+       start = start->link;
+-      thresh = (start && start->ignore
++      thresh = (prev->ignore || (start && start->ignore)
+ 		? ignorable_threshold
+ 		: non_ignorable_threshold);
+       /* It is not supposed to matter which file we check in the end-test.
+@@ -475,7 +431,7 @@ find_hunk (struct change *start)
+   return prev;
+ }
+ 
+-/* Set the 'ignore' flag properly in each change in SCRIPT.
++/* Set the `ignore' flag properly in each change in SCRIPT.
+    It should be 1 if all the lines inserted or deleted in that change
+    are ignorable lines.  */
+ 
+@@ -503,7 +459,7 @@ mark_ignorable (struct change *script)
+ }
+ 
+ /* Find the last function-header line in LINBUF prior to line number LINENUM.
+-   This is a line containing a match for the regexp in 'function_regexp'.
++   This is a line containing a match for the regexp in `function_regexp'.
+    Return the address of the text, or NULL if no function-header is found.  */
+ 
+ static char const *
+diff -pru diffutils-3.0/diff3.c diffutils-3.0-patch/diff3.c
+--- diffutils-3.0/diff3.c	2019-03-14 01:40:58.358488000 -0700
++++ diffutils-3.0-patch/diff3.c	2019-03-14 01:40:51.279011000 -0700
+@@ -1,7 +1,7 @@
+ /* diff3 - compare three files line by line
+ 
+-   Copyright (C) 1988-1989, 1992-1996, 1998, 2001-2002, 2004, 2006, 2009-2013,
+-   2015-2017 Free Software Foundation, Inc.
++   Copyright (C) 1988-1989, 1992-1996, 1998, 2001-2002, 2004, 2006, 2009-2010
++   Free Software Foundation, Inc.
+ 
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+@@ -24,18 +24,18 @@
+ 
+ #include <c-stack.h>
+ #include <cmpbuf.h>
+-#include "die.h"
+ #include <error.h>
+ #include <exitfail.h>
+ #include <file-type.h>
+ #include <getopt.h>
++#include <inttostr.h>
+ #include <progname.h>
+-#include <system-quote.h>
++#include <sh-quote.h>
+ #include <version-etc.h>
+ #include <xalloc.h>
+ #include <xfreopen.h>
+ 
+-/* The official name of this program (e.g., no 'g' prefix).  */
++/* The official name of this program (e.g., no `g' prefix).  */
+ #define PROGRAM_NAME "diff3"
+ 
+ #define AUTHORS \
+@@ -79,9 +79,6 @@ struct diff_block {
+   char **lines[2];		/* The actual lines (may contain nulls) */
+   size_t *lengths[2];		/* Line lengths (including newlines, if any) */
+   struct diff_block *next;
+-#ifdef lint
+-  struct diff_block *n2;	/* Used only when freeing.  */
+-#endif
+ };
+ 
+ /* Three way diff */
+@@ -162,7 +159,7 @@ static bool overlap_only;
+ /* If nonzero, show information for DIFF_2ND diffs.  */
+ static bool show_2nd;
+ 
+-/* If nonzero, include ':wq' at the end of the script
++/* If nonzero, include `:wq' at the end of the script
+    to write out the file being edited.   */
+ static bool finalwrite;
+ 
+@@ -180,7 +177,7 @@ static struct diff3_block *create_diff3_
+ static struct diff3_block *make_3way_diff (struct diff_block *, struct diff_block *);
+ static struct diff3_block *reverse_diff3_blocklist (struct diff3_block *);
+ static struct diff3_block *using_to_diff3_block (struct diff_block *[2], struct diff_block *[2], int, int, struct diff3_block const *);
+-static struct diff_block *process_diff (char const *, char const *, struct diff_block **, char **);
++static struct diff_block *process_diff (char const *, char const *, struct diff_block **);
+ static void check_stdout (void);
+ static void fatal (char const *) __attribute__((noreturn));
+ static void output_diff3 (FILE *, struct diff3_block *, int const[3], int const[3]);
+@@ -216,38 +213,6 @@ static struct option const longopts[] =
+   {0, 0, 0, 0}
+ };
+ 
+-static void
+-free_diff_block (struct diff_block *p)
+-{
+-#ifndef lint
+-  (void)p;
+-#else
+-  while (p)
+-    {
+-      free (p->lines[0]);
+-      free (p->lines[1]);
+-      free (p->lengths[0]);
+-      free (p->lengths[1]);
+-      struct diff_block *next = p->n2;
+-      free (p);
+-      p = next;
+-    }
+-#endif
+-}
+-
+-/* Copy each next pointer to n2, since make_3way_diff would clobber the former,
+-   yet we will still need something to free these buffers.  */
+-static void
+-next_to_n2 (struct diff_block *p)
+-{
+-#ifndef lint
+-  (void)p;
+-#else
+-  while (p)
+-    p = p->n2 = p->next;
+-#endif
+-}
+-
+ int
+ main (int argc, char **argv)
+ {
+@@ -301,10 +266,10 @@ main (int argc, char **argv)
+ 	  break;
+ 	case 'X':
+ 	  overlap_only = true;
+-	  FALLTHROUGH;
++	  /* Fall through.  */
+ 	case 'E':
+ 	  flagging = true;
+-	  FALLTHROUGH;
++	  /* Fall through.  */
+ 	case 'e':
+ 	  incompat++;
+ 	  break;
+@@ -315,7 +280,7 @@ main (int argc, char **argv)
+ 	  strip_trailing_cr = true;
+ 	  break;
+ 	case 'v':
+-	  version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, Version,
++	  version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, PACKAGE_VERSION,
+ 		       AUTHORS, (char *) NULL);
+ 	  check_stdout ();
+ 	  return EXIT_SUCCESS;
+@@ -339,9 +304,7 @@ main (int argc, char **argv)
+ 	}
+     }
+ 
+-  /* -AeExX3 without -m implies ed script.  */
+-  edscript = incompat & ~(int) merge;
+-
++  edscript = incompat & ~merge;  /* -AeExX3 without -m implies ed script.  */
+   show_2nd |= ~incompat & merge;  /* -m without -AeExX3 implies -A.  */
+   flagging |= ~incompat & merge;
+ 
+@@ -399,12 +362,12 @@ main (int argc, char **argv)
+     rev_mapping[mapping[i]] = i;
+ 
+   for (i = 0; i < 3; i++)
+-    if (! STREQ (file[i], "-"))
++    if (strcmp (file[i], "-") != 0)
+       {
+ 	if (stat (file[i], &statb) < 0)
+ 	  perror_with_exit (file[i]);
+ 	else if (S_ISDIR (statb.st_mode))
+-	  die (EXIT_TROUBLE, EISDIR, "%s", file[i]);
++	  error (EXIT_TROUBLE, EISDIR, "%s", file[i]);
+       }
+ 
+ #ifdef SIGCHLD
+@@ -415,19 +378,10 @@ main (int argc, char **argv)
+   /* Invoke diff twice on two pairs of input files, combine the two
+      diffs, and output them.  */
+ 
+-  char *b0, *b1;
+   commonname = file[rev_mapping[FILEC]];
+-  thread1 = process_diff (file[rev_mapping[FILE1]], commonname, &last_block, &b1);
+-  thread0 = process_diff (file[rev_mapping[FILE0]], commonname, &last_block, &b0);
+-
+-  next_to_n2 (thread0);
+-  next_to_n2 (thread1);
+-
++  thread1 = process_diff (file[rev_mapping[FILE1]], commonname, &last_block);
++  thread0 = process_diff (file[rev_mapping[FILE0]], commonname, &last_block);
+   diff3 = make_3way_diff (thread0, thread1);
+-
+-  free_diff_block (thread0);
+-  free_diff_block (thread1);
+-
+   if (edscript)
+     conflicts_found
+       = output_diff3_edscript (stdout, diff3, mapping, rev_mapping,
+@@ -447,10 +401,9 @@ main (int argc, char **argv)
+       conflicts_found = false;
+     }
+ 
+-  free (b0);
+-  free (b1);
+   check_stdout ();
+   exit (conflicts_found);
++  return conflicts_found;
+ }
+ 
+ static void
+@@ -458,8 +411,9 @@ try_help (char const *reason_msgid, char
+ {
+   if (reason_msgid)
+     error (0, 0, _(reason_msgid), operand);
+-  die (EXIT_TROUBLE, 0,
++  error (EXIT_TROUBLE, 0,
+ 	 _("Try '%s --help' for more information."), program_name);
++  abort ();
+ }
+ 
+ static void
+@@ -472,28 +426,23 @@ check_stdout (void)
+ }
+ 
+ static char const * const option_help_msgid[] = {
+-  N_("-A, --show-all              output all changes, bracketing conflicts"),
+-  "",
+-  N_("-e, --ed                    output ed script incorporating changes\n"
+-     "                                from OLDFILE to YOURFILE into MYFILE"),
+-  N_("-E, --show-overlap          like -e, but bracket conflicts"),
+-  N_("-3, --easy-only             like -e, but incorporate only nonoverlapping changes"),
+-  N_("-x, --overlap-only          like -e, but incorporate only overlapping changes"),
+-  N_("-X                          like -x, but bracket conflicts"),
+-  N_("-i                          append 'w' and 'q' commands to ed scripts"),
+-  "",
+-  N_("-m, --merge                 output actual merged file, according to\n"
+-     "                                -A if no other options are given"),
++  N_("-e  --ed  Output unmerged changes from OLDFILE to YOURFILE into MYFILE."),
++  N_("-E  --show-overlap  Output unmerged changes, bracketing conflicts."),
++  N_("-A  --show-all  Output all changes, bracketing conflicts."),
++  N_("-x  --overlap-only  Output overlapping changes."),
++  N_("-X  Output overlapping changes, bracketing them."),
++  N_("-3  --easy-only  Output unmerged nonoverlapping changes."),
+   "",
+-  N_("-a, --text                  treat all files as text"),
+-  N_("    --strip-trailing-cr     strip trailing carriage return on input"),
+-  N_("-T, --initial-tab           make tabs line up by prepending a tab"),
+-  N_("    --diff-program=PROGRAM  use PROGRAM to compare files"),
+-  N_("-L, --label=LABEL           use LABEL instead of file name\n"
+-     "                                (can be repeated up to three times)"),
++  N_("-m  --merge  Output merged file instead of ed script (default -A)."),
++  N_("-L LABEL  --label=LABEL  Use LABEL instead of file name."),
++  N_("-i  Append 'w' and 'q' commands to ed scripts."),
++  N_("-a  --text  Treat all files as text."),
++  N_("--strip-trailing-cr  Strip trailing carriage return on input."),
++  N_("-T  --initial-tab  Make tabs line up by prepending a tab."),
++  N_("--diff-program=PROGRAM  Use PROGRAM to compare files."),
+   "",
+-  N_("    --help                  display this help and exit"),
+-  N_("-v, --version               output version information and exit"),
++  N_("-v  --version  Output version info."),
++  N_("--help  Output this help."),
+   0
+ };
+ 
+@@ -505,25 +454,11 @@ usage (void)
+   printf (_("Usage: %s [OPTION]... MYFILE OLDFILE YOURFILE\n"),
+ 	  program_name);
+   printf ("%s\n\n", _("Compare three files line by line."));
+-
+-  fputs (_("\
+-Mandatory arguments to long options are mandatory for short options too.\n\
+-"), stdout);
+   for (p = option_help_msgid;  *p;  p++)
+     if (**p)
+       printf ("  %s\n", _(*p));
+     else
+       putchar ('\n');
+-  fputs (_("\n\
+-The default output format is a somewhat human-readable representation of\n\
+-the changes.\n\
+-\n\
+-The -e, -E, -x, -X (and corresponding long) options cause an ed script\n\
+-to be output instead of the default.\n\
+-\n\
+-Finally, the -m (--merge) option causes diff3 to do the merge internally\n\
+-and output the actual merged file.  For unusual input, this is more\n\
+-robust than using ed.\n"), stdout);
+   printf ("\n%s\n%s\n",
+ 	  _("If a FILE is '-', read standard input."),
+ 	  _("Exit status is 0 if successful, 1 if conflicts, 2 if trouble."));
+@@ -986,8 +921,7 @@ compare_line_list (char * const list1[],
+ static struct diff_block *
+ process_diff (char const *filea,
+ 	      char const *fileb,
+-	      struct diff_block **last_block,
+-	      char **buf_to_free)
++	      struct diff_block **last_block)
+ {
+   char *diff_contents;
+   char *diff_limit;
+@@ -1002,7 +936,6 @@ process_diff (char const *filea,
+ 				  sizeof *bptr->lengths[1]));
+ 
+   diff_limit = read_diff (filea, fileb, &diff_contents);
+-  *buf_to_free = diff_contents;
+   scan_diff = diff_contents;
+ 
+   while (scan_diff < diff_limit)
+@@ -1094,7 +1027,7 @@ process_diff (char const *filea,
+ 
+ /* Skip tabs and spaces, and return the first character after them.  */
+ 
+-static char * _GL_ATTRIBUTE_PURE
++static char *
+ skipwhite (char *s)
+ {
+   while (*s == ' ' || *s == '\t')
+@@ -1210,15 +1143,13 @@ read_diff (char const *filea,
+   int fd, wstatus, status;
+   int werrno = 0;
+   struct stat pipestat;
++
++#if HAVE_WORKING_FORK || HAVE_WORKING_VFORK
++
+   char const *argv[9];
+   char const **ap;
+-#if HAVE_WORKING_FORK
+   int fds[2];
+   pid_t pid;
+-#else
+-  FILE *fpipe;
+-  char *command;
+-#endif
+ 
+   ap = argv;
+   *ap++ = diff_program;
+@@ -1232,12 +1163,10 @@ read_diff (char const *filea,
+   *ap++ = fileb;
+   *ap = 0;
+ 
+-#if HAVE_WORKING_FORK
+-
+   if (pipe (fds) != 0)
+     perror_with_exit ("pipe");
+ 
+-  pid = fork ();
++  pid = vfork ();
+   if (pid == 0)
+     {
+       /* Child */
+@@ -1263,7 +1192,32 @@ read_diff (char const *filea,
+ 
+ #else
+ 
+-  command = system_quote_argv (SCI_SYSTEM, (char **) argv);
++  FILE *fpipe;
++  char const args[] = " --horizon-lines=100 -- ";
++  char *command = xmalloc (shell_quote_length (diff_program)
++			   + sizeof "-a"
++			   + sizeof "--strip-trailing-cr"
++			   + sizeof args - 1
++			   + shell_quote_length (filea) + 1
++			   + shell_quote_length (fileb) + 1);
++  char *p = command;
++  p = shell_quote_copy (p, diff_program);
++  if (text)
++    {
++      strcpy (p, " -a");
++      p += 3;
++    }
++  if (strip_trailing_cr)
++    {
++      strcpy (p, " --strip-trailing-cr");
++      p += 20;
++    }
++  strcpy (p, args);
++  p += sizeof args - 1;
++  p = shell_quote_copy (p, filea);
++  *p++ = ' ';
++  p = shell_quote_copy (p, fileb);
++  *p = 0;
+   errno = 0;
+   fpipe = popen (command, "r");
+   if (!fpipe)
+@@ -1301,7 +1255,7 @@ read_diff (char const *filea,
+ 
+   *output_placement = diff_result;
+ 
+-#if ! HAVE_WORKING_FORK
++#if ! (HAVE_WORKING_FORK || HAVE_WORKING_VFORK)
+ 
+   wstatus = pclose (fpipe);
+   if (wstatus == -1)
+@@ -1319,7 +1273,7 @@ read_diff (char const *filea,
+   status = ! werrno && WIFEXITED (wstatus) ? WEXITSTATUS (wstatus) : INT_MAX;
+ 
+   if (EXIT_TROUBLE <= status)
+-    die (EXIT_TROUBLE, werrno,
++    error (EXIT_TROUBLE, werrno,
+ 	   _(status == 126
+ 	     ? "subsidiary program '%s' could not be invoked"
+ 	     : status == 127
+@@ -1430,20 +1384,20 @@ output_diff3 (FILE *outputfile, struct d
+ 	  int realfile = mapping[i];
+ 	  lin lowt = D_LOWLINE (ptr, realfile);
+ 	  lin hight = D_HIGHLINE (ptr, realfile);
+-	  printint llowt = lowt;
+-	  printint lhight = hight;
++	  long int llowt = lowt;
++	  long int lhight = hight;
+ 
+ 	  fprintf (outputfile, "%d:", i + 1);
+ 	  switch (lowt - hight)
+ 	    {
+ 	    case 1:
+-	      fprintf (outputfile, "%"pI"da\n", llowt - 1);
++	      fprintf (outputfile, "%lda\n", llowt - 1);
+ 	      break;
+ 	    case 0:
+-	      fprintf (outputfile, "%"pI"dc\n", llowt);
++	      fprintf (outputfile, "%ldc\n", llowt);
+ 	      break;
+ 	    default:
+-	      fprintf (outputfile, "%"pI"d,%"pI"dc\n", llowt, lhight);
++	      fprintf (outputfile, "%ld,%ldc\n", llowt, lhight);
+ 	      break;
+ 	    }
+ 
+@@ -1497,18 +1451,19 @@ dotlines (FILE *outputfile, struct diff3
+ 
+ /* Output to OUTPUTFILE a '.' line.  If LEADING_DOT is true, also
+    output a command that removes initial '.'s starting with line START
+-   and continuing for NUM lines.  */
++   and continuing for NUM lines.  (START is long int, not lin, for
++   convenience with printf %ld formats.)  */
+ 
+ static void
+-undotlines (FILE *outputfile, bool leading_dot, printint start, printint num)
++undotlines (FILE *outputfile, bool leading_dot, long int start, lin num)
+ {
+   fputs (".\n", outputfile);
+   if (leading_dot)
+     {
+       if (num == 1)
+-	fprintf (outputfile, "%"pI"ds/^\\.//\n", start);
++	fprintf (outputfile, "%lds/^\\.//\n", start);
+       else
+-	fprintf (outputfile, "%"pI"d,%"pI"ds/^\\.//\n", start, start + num - 1);
++	fprintf (outputfile, "%ld,%lds/^\\.//\n", start, start + num - 1);
+     }
+ }
+ 
+@@ -1520,7 +1475,7 @@ undotlines (FILE *outputfile, bool leadi
+    around the problems involved with changing line numbers in an ed
+    script.
+ 
+-   As in 'output_diff3', the variable MAPPING maps from file number
++   As in `output_diff3', the variable MAPPING maps from file number
+    according to the argument list to file number according to the diff
+    passed.  All files listed below are in terms of the argument list.
+    REV_MAPPING is the inverse of MAPPING.
+@@ -1549,7 +1504,7 @@ output_diff3_edscript (FILE *outputfile,
+ 	   ? DIFF_ALL
+ 	   : DIFF_1ST + rev_mapping[b->correspond - DIFF_1ST]);
+ 
+-      printint low0, high0;
++      long int low0, high0;
+ 
+       /* If we aren't supposed to do this output block, skip it.  */
+       switch (type)
+@@ -1570,7 +1525,7 @@ output_diff3_edscript (FILE *outputfile,
+ 
+ 	  /* Mark end of conflict.  */
+ 
+-	  fprintf (outputfile, "%"pI"da\n", high0);
++	  fprintf (outputfile, "%lda\n", high0);
+ 	  leading_dot = false;
+ 	  if (type == DIFF_ALL)
+ 	    {
+@@ -1592,7 +1547,7 @@ output_diff3_edscript (FILE *outputfile,
+ 
+ 	  /* Mark start of conflict.  */
+ 
+-	  fprintf (outputfile, "%"pI"da\n<<<<<<< %s\n", low0 - 1,
++	  fprintf (outputfile, "%lda\n<<<<<<< %s\n", low0 - 1,
+ 		   type == DIFF_ALL ? file0 : file1);
+ 	  leading_dot = false;
+ 	  if (type == DIFF_2ND)
+@@ -1608,9 +1563,9 @@ output_diff3_edscript (FILE *outputfile,
+ 	/* Write out a delete */
+ 	{
+ 	  if (low0 == high0)
+-	    fprintf (outputfile, "%"pI"dd\n", low0);
++	    fprintf (outputfile, "%ldd\n", low0);
+ 	  else
+-	    fprintf (outputfile, "%"pI"d,%"pI"dd\n", low0, high0);
++	    fprintf (outputfile, "%ld,%ldd\n", low0, high0);
+ 	}
+       else
+ 	/* Write out an add or change */
+@@ -1618,13 +1573,13 @@ output_diff3_edscript (FILE *outputfile,
+ 	  switch (high0 - low0)
+ 	    {
+ 	    case -1:
+-	      fprintf (outputfile, "%"pI"da\n", high0);
++	      fprintf (outputfile, "%lda\n", high0);
+ 	      break;
+ 	    case 0:
+-	      fprintf (outputfile, "%"pI"dc\n", high0);
++	      fprintf (outputfile, "%ldc\n", high0);
+ 	      break;
+ 	    default:
+-	      fprintf (outputfile, "%"pI"d,%"pI"dc\n", low0, high0);
++	      fprintf (outputfile, "%ld,%ldc\n", low0, high0);
+ 	      break;
+ 	    }
+ 
+@@ -1776,15 +1731,17 @@ reverse_diff3_blocklist (struct diff3_bl
+ 
+   return prev;
+ }
+-
++
+ static void
+ fatal (char const *msgid)
+ {
+-  die (EXIT_TROUBLE, 0, "%s", _(msgid));
++  error (EXIT_TROUBLE, 0, "%s", _(msgid));
++  abort ();
+ }
+ 
+ static void
+ perror_with_exit (char const *string)
+ {
+-  die (EXIT_TROUBLE, errno, "%s", string);
++  error (EXIT_TROUBLE, errno, "%s", string);
++  abort ();
+ }
+diff -pru diffutils-3.0/diff.c diffutils-3.0-patch/diff.c
+--- diffutils-3.0/diff.c	2019-03-14 01:40:58.362484000 -0700
++++ diffutils-3.0-patch/diff.c	2019-03-14 01:40:51.285005000 -0700
+@@ -1,7 +1,7 @@
+ /* diff - compare files line by line
+ 
+    Copyright (C) 1988-1989, 1992-1994, 1996, 1998, 2001-2002, 2004, 2006-2007,
+-   2009-2013, 2015-2017 Free Software Foundation, Inc.
++   2009-2010 Free Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -20,7 +20,6 @@
+ 
+ #define GDIFF_MAIN
+ #include "diff.h"
+-#include "die.h"
+ #include <assert.h>
+ #include "paths.h"
+ #include <c-stack.h>
+@@ -28,7 +27,6 @@
+ #include <error.h>
+ #include <exclude.h>
+ #include <exitfail.h>
+-#include <filenamecat.h>
+ #include <file-type.h>
+ #include <fnmatch.h>
+ #include <getopt.h>
+@@ -40,10 +38,9 @@
+ #include <timespec.h>
+ #include <version-etc.h>
+ #include <xalloc.h>
+-#include <xreadlink.h>
+-#include <binary-io.h>
++#include <xfreopen.h>
+ 
+-/* The official name of this program (e.g., no 'g' prefix).  */
++/* The official name of this program (e.g., no `g' prefix).  */
+ #define PROGRAM_NAME "diff"
+ 
+ #define AUTHORS \
+@@ -60,9 +57,9 @@
+ struct regexp_list
+ {
+   char *regexps;	/* chars representing disjunction of the regexps */
+-  size_t len;		/* chars used in 'regexps' */
+-  size_t size;		/* size malloc'ed for 'regexps'; 0 if not malloc'ed */
+-  bool multiple_regexps;/* Does 'regexps' represent a disjunction?  */
++  size_t len;		/* chars used in `regexps' */
++  size_t size;		/* size malloc'ed for `regexps'; 0 if not malloc'ed */
++  bool multiple_regexps;/* Does `regexps' represent a disjunction?  */
+   struct re_pattern_buffer *buf;
+ };
+ 
+@@ -71,7 +68,6 @@ static void add_regexp (struct regexp_li
+ static void summarize_regexp_list (struct regexp_list *);
+ static void specify_style (enum output_style);
+ static void specify_value (char const **, char const *, char const *);
+-static void specify_colors_style (char const *);
+ static void try_help (char const *, char const *) __attribute__((noreturn));
+ static void check_stdout (void);
+ static void usage (void);
+@@ -94,11 +90,15 @@ static bool binary;
+ enum { binary = true };
+ #endif
+ 
+-/* If one file is missing, treat it as present but empty (-N).  */
++/* When comparing directories, if a file appears only in one
++   directory, treat it as present but empty in the other (-N).
++   Then `patch' would create the file with appropriate contents.  */
+ static bool new_file;
+ 
+-/* If the first file is missing, treat it as present but empty
+-   (--unidirectional-new-file).  */
++/* When comparing directories, if a file appears only in the second
++   directory of the two, treat it as present but empty in the other
++   (--unidirectional-new-file).
++   Then `patch' would create the file with appropriate contents.  */
+ static bool unidirectional_new_file;
+ 
+ /* Report files compared that are the same (-s).
+@@ -106,7 +106,7 @@ static bool unidirectional_new_file;
+ static bool report_identical_files;
+ 
+ static char const shortopts[] =
+-"0123456789abBcC:dD:eEfF:hHiI:lL:nNpPqrsS:tTuU:vwW:x:X:yZ";
++"0123456789abBcC:dD:eEfF:hHiI:lL:nNpPqrsS:tTuU:vwW:x:X:y";
+ 
+ /* Values for long options that do not have single-letter equivalents.  */
+ enum
+@@ -119,7 +119,6 @@ enum
+   INHIBIT_HUNK_MERGE_OPTION,
+   LEFT_COLUMN_OPTION,
+   LINE_FORMAT_OPTION,
+-  NO_DEREFERENCE_OPTION,
+   NO_IGNORE_FILE_NAME_CASE_OPTION,
+   NORMAL_OPTION,
+   SDIFF_MERGE_ASSIST_OPTION,
+@@ -138,12 +137,7 @@ enum
+   UNCHANGED_GROUP_FORMAT_OPTION,
+   OLD_GROUP_FORMAT_OPTION,
+   NEW_GROUP_FORMAT_OPTION,
+-  CHANGED_GROUP_FORMAT_OPTION,
+-
+-  COLOR_OPTION,
+-  COLOR_PALETTE_OPTION,
+-
+-  PRESUME_OUTPUT_TTY_OPTION,
++  CHANGED_GROUP_FORMAT_OPTION
+ };
+ 
+ static char const group_format_option[][sizeof "--unchanged-group-format"] =
+@@ -166,7 +160,6 @@ static struct option const longopts[] =
+   {"binary", 0, 0, BINARY_OPTION},
+   {"brief", 0, 0, 'q'},
+   {"changed-group-format", 1, 0, CHANGED_GROUP_FORMAT_OPTION},
+-  {"color", 2, 0, COLOR_OPTION},
+   {"context", 2, 0, 'C'},
+   {"ed", 0, 0, 'e'},
+   {"exclude", 1, 0, 'x'},
+@@ -184,7 +177,6 @@ static struct option const longopts[] =
+   {"ignore-matching-lines", 1, 0, 'I'},
+   {"ignore-space-change", 0, 0, 'b'},
+   {"ignore-tab-expansion", 0, 0, 'E'},
+-  {"ignore-trailing-space", 0, 0, 'Z'},
+   {"inhibit-hunk-merge", 0, 0, INHIBIT_HUNK_MERGE_OPTION},
+   {"initial-tab", 0, 0, 'T'},
+   {"label", 1, 0, 'L'},
+@@ -194,13 +186,11 @@ static struct option const longopts[] =
+   {"new-file", 0, 0, 'N'},
+   {"new-group-format", 1, 0, NEW_GROUP_FORMAT_OPTION},
+   {"new-line-format", 1, 0, NEW_LINE_FORMAT_OPTION},
+-  {"no-dereference", 0, 0, NO_DEREFERENCE_OPTION},
+   {"no-ignore-file-name-case", 0, 0, NO_IGNORE_FILE_NAME_CASE_OPTION},
+   {"normal", 0, 0, NORMAL_OPTION},
+   {"old-group-format", 1, 0, OLD_GROUP_FORMAT_OPTION},
+   {"old-line-format", 1, 0, OLD_LINE_FORMAT_OPTION},
+   {"paginate", 0, 0, 'l'},
+-  {"palette", 1, 0, COLOR_PALETTE_OPTION},
+   {"rcs", 0, 0, 'n'},
+   {"recursive", 0, 0, 'r'},
+   {"report-identical-files", 0, 0, 's'},
+@@ -222,9 +212,6 @@ static struct option const longopts[] =
+   {"unified", 2, 0, 'U'},
+   {"version", 0, 0, 'v'},
+   {"width", 1, 0, 'W'},
+-
+-  /* This is solely for testing.  Do not document.  */
+-  {"-presume-output-tty", no_argument, NULL, PRESUME_OUTPUT_TTY_OPTION},
+   {0, 0, 0, 0}
+ };
+ 
+@@ -296,7 +283,6 @@ main (int argc, char **argv)
+   ignore_regexp_list.buf = &ignore_regexp;
+   re_set_syntax (RE_SYNTAX_GREP | RE_NO_POSIX_BACKTRACKING);
+   excluded = new_exclude ();
+-  presume_output_tty = false;
+ 
+   /* Decode the options.  */
+ 
+@@ -317,12 +303,11 @@ main (int argc, char **argv)
+ 	case '7':
+ 	case '8':
+ 	case '9':
+-	  ocontext = (! ISDIGIT (prev)
+-		      ? c - '0'
+-		      : (ocontext - (c - '0' <= CONTEXT_MAX % 10)
+-			 < CONTEXT_MAX / 10)
+-		      ? 10 * ocontext + (c - '0')
+-		      : CONTEXT_MAX);
++	  if (! ISDIGIT (prev))
++	    ocontext = c - '0';
++	  else if (LIN_MAX / 10 < ocontext
++		   || ((ocontext = 10 * ocontext + c - '0') < 0))
++	    ocontext = LIN_MAX;
+ 	  break;
+ 
+ 	case 'a':
+@@ -334,11 +319,6 @@ main (int argc, char **argv)
+ 	    ignore_white_space = IGNORE_SPACE_CHANGE;
+ 	  break;
+ 
+-	case 'Z':
+-	  if (ignore_white_space < IGNORE_SPACE_CHANGE)
+-	    ignore_white_space |= IGNORE_TRAILING_SPACE;
+-	  break;
+-
+ 	case 'B':
+ 	  ignore_blank_lines = true;
+ 	  break;
+@@ -351,8 +331,8 @@ main (int argc, char **argv)
+ 		numval = strtoumax (optarg, &numend, 10);
+ 		if (*numend)
+ 		  try_help ("invalid context length '%s'", optarg);
+-		if (CONTEXT_MAX < numval)
+-		  numval = CONTEXT_MAX;
++		if (LIN_MAX < numval)
++		  numval = LIN_MAX;
+ 	      }
+ 	    else
+ 	      numval = 3;
+@@ -400,8 +380,8 @@ main (int argc, char **argv)
+ 	  break;
+ 
+ 	case 'E':
+-	  if (ignore_white_space < IGNORE_SPACE_CHANGE)
+-	    ignore_white_space |= IGNORE_TAB_EXPANSION;
++	  if (ignore_white_space < IGNORE_TAB_EXPANSION)
++	    ignore_white_space = IGNORE_TAB_EXPANSION;
+ 	  break;
+ 
+ 	case 'f':
+@@ -499,7 +479,7 @@ main (int argc, char **argv)
+ 	  break;
+ 
+ 	case 'v':
+-	  version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, Version,
++	  version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, PACKAGE_VERSION,
+ 		       AUTHORS, (char *) NULL);
+ 	  check_stdout ();
+ 	  return EXIT_SUCCESS;
+@@ -538,7 +518,7 @@ main (int argc, char **argv)
+ #if O_BINARY
+ 	  binary = true;
+ 	  if (! isatty (STDOUT_FILENO))
+-	    set_binary_mode (STDOUT_FILENO, O_BINARY);
++	    xfreopen (NULL, "wb", stdout);
+ #endif
+ 	  break;
+ 
+@@ -577,10 +557,6 @@ main (int argc, char **argv)
+ 	    specify_value (&line_format[i], optarg, "--line-format");
+ 	  break;
+ 
+-	case NO_DEREFERENCE_OPTION:
+-	  no_dereference_symlinks = true;
+-	  break;
+-
+ 	case NO_IGNORE_FILE_NAME_CASE_OPTION:
+ 	  ignore_file_name_case = false;
+ 	  break;
+@@ -608,8 +584,7 @@ main (int argc, char **argv)
+ 
+ 	case TABSIZE_OPTION:
+ 	  numval = strtoumax (optarg, &numend, 10);
+-	  if (! (0 < numval && numval <= SIZE_MAX - GUTTER_WIDTH_MINIMUM)
+-	      || *numend)
++	  if (! (0 < numval && numval <= SIZE_MAX) || *numend)
+ 	    try_help ("invalid tabsize '%s'", optarg);
+ 	  if (tabsize != numval)
+ 	    {
+@@ -640,31 +615,12 @@ main (int argc, char **argv)
+ 	  specify_value (&group_format[c], optarg, group_format_option[c]);
+ 	  break;
+ 
+-	case COLOR_OPTION:
+-	  specify_colors_style (optarg);
+-	  break;
+-
+-	case COLOR_PALETTE_OPTION:
+-	  set_color_palette (optarg);
+-	  break;
+-
+-        case PRESUME_OUTPUT_TTY_OPTION:
+-          presume_output_tty = true;
+-          break;
+-
+ 	default:
+ 	  try_help (NULL, NULL);
+ 	}
+       prev = c;
+     }
+ 
+-  if (colors_style == AUTO)
+-    {
+-      char const *t = getenv ("TERM");
+-      if (t && STREQ (t, "dumb"))
+-        colors_style = NEVER;
+-    }
+-
+   if (output_style == OUTPUT_UNSPECIFIED)
+     {
+       if (show_c_function)
+@@ -715,14 +671,10 @@ main (int argc, char **argv)
+ 		a half line plus a gutter is an integral number of tabs,
+ 		so that tabs in the right column line up.  */
+ 
+-    size_t t = expand_tabs ? 1 : tabsize;
+-    size_t w = width;
+-    size_t t_plus_g = t + GUTTER_WIDTH_MINIMUM;
+-    size_t unaligned_off = (w >> 1) + (t_plus_g >> 1) + (w & t_plus_g & 1);
+-    size_t off = unaligned_off - unaligned_off % t;
+-    sdiff_half_width = (off <= GUTTER_WIDTH_MINIMUM || w <= off
+-			? 0
+-			: MIN (off - GUTTER_WIDTH_MINIMUM, w - off));
++    intmax_t t = expand_tabs ? 1 : tabsize;
++    intmax_t w = width;
++    intmax_t off = (w + t + GUTTER_WIDTH_MINIMUM) / (2 * t)  *  t;
++    sdiff_half_width = MAX (0, MIN (off - GUTTER_WIDTH_MINIMUM, w - off)),
+     sdiff_column2_offset = sdiff_half_width ? off : w;
+   }
+ 
+@@ -818,7 +770,7 @@ add_regexp (struct regexp_list *reglist,
+   char const *m = re_compile_pattern (pattern, patlen, reglist->buf);
+ 
+   if (m != 0)
+-    error (EXIT_TROUBLE, 0, "%s: %s", pattern, m);
++    error (0, 0, "%s: %s", pattern, m);
+   else
+     {
+       char *regexps = reglist->regexps;
+@@ -864,7 +816,7 @@ summarize_regexp_list (struct regexp_lis
+ 	  char const *m = re_compile_pattern (reglist->regexps, reglist->len,
+ 					      reglist->buf);
+ 	  if (m)
+-	    die (EXIT_TROUBLE, 0, "%s: %s", reglist->regexps, m);
++	    error (EXIT_TROUBLE, 0, "%s: %s", reglist->regexps, m);
+ 	}
+     }
+ }
+@@ -874,8 +826,9 @@ try_help (char const *reason_msgid, char
+ {
+   if (reason_msgid)
+     error (0, 0, _(reason_msgid), operand);
+-  die (EXIT_TROUBLE, 0, _("Try '%s --help' for more information."),
++  error (EXIT_TROUBLE, 0, _("Try '%s --help' for more information."),
+ 	 program_name);
++  abort ();
+ }
+ 
+ static void
+@@ -888,65 +841,41 @@ check_stdout (void)
+ }
+ 
+ static char const * const option_help_msgid[] = {
+-  N_("    --normal                  output a normal diff (the default)"),
+-  N_("-q, --brief                   report only when files differ"),
+-  N_("-s, --report-identical-files  report when two files are the same"),
+-  N_("-c, -C NUM, --context[=NUM]   output NUM (default 3) lines of copied context"),
+-  N_("-u, -U NUM, --unified[=NUM]   output NUM (default 3) lines of unified context"),
+-  N_("-e, --ed                      output an ed script"),
+-  N_("-n, --rcs                     output an RCS format diff"),
+-  N_("-y, --side-by-side            output in two columns"),
+-  N_("-W, --width=NUM               output at most NUM (default 130) print columns"),
+-  N_("    --left-column             output only the left column of common lines"),
+-  N_("    --suppress-common-lines   do not output common lines"),
+-  "",
+-  N_("-p, --show-c-function         show which C function each change is in"),
+-  N_("-F, --show-function-line=RE   show the most recent line matching RE"),
+-  N_("    --label LABEL             use LABEL instead of file name and timestamp\n"
+-     "                                (can be repeated)"),
+-  "",
+-  N_("-t, --expand-tabs             expand tabs to spaces in output"),
+-  N_("-T, --initial-tab             make tabs line up by prepending a tab"),
+-  N_("    --tabsize=NUM             tab stops every NUM (default 8) print columns"),
+-  N_("    --suppress-blank-empty    suppress space or tab before empty output lines"),
+-  N_("-l, --paginate                pass output through 'pr' to paginate it"),
+-  "",
+-  N_("-r, --recursive                 recursively compare any subdirectories found"),
+-  N_("    --no-dereference            don't follow symbolic links"),
+-  N_("-N, --new-file                  treat absent files as empty"),
+-  N_("    --unidirectional-new-file   treat absent first files as empty"),
+-  N_("    --ignore-file-name-case     ignore case when comparing file names"),
+-  N_("    --no-ignore-file-name-case  consider case when comparing file names"),
+-  N_("-x, --exclude=PAT               exclude files that match PAT"),
+-  N_("-X, --exclude-from=FILE         exclude files that match any pattern in FILE"),
+-  N_("-S, --starting-file=FILE        start with FILE when comparing directories"),
+-  N_("    --from-file=FILE1           compare FILE1 to all operands;\n"
+-     "                                  FILE1 can be a directory"),
+-  N_("    --to-file=FILE2             compare all operands to FILE2;\n"
+-     "                                  FILE2 can be a directory"),
+-  "",
+-  N_("-i, --ignore-case               ignore case differences in file contents"),
+-  N_("-E, --ignore-tab-expansion      ignore changes due to tab expansion"),
+-  N_("-Z, --ignore-trailing-space     ignore white space at line end"),
+-  N_("-b, --ignore-space-change       ignore changes in the amount of white space"),
+-  N_("-w, --ignore-all-space          ignore all white space"),
+-  N_("-B, --ignore-blank-lines        ignore changes where lines are all blank"),
+-  N_("-I, --ignore-matching-lines=RE  ignore changes where all lines match RE"),
++  N_("Compare files line by line."),
+   "",
+-  N_("-a, --text                      treat all files as text"),
+-  N_("    --strip-trailing-cr         strip trailing carriage return on input"),
++  N_("-i  --ignore-case  Ignore case differences in file contents."),
++  N_("--ignore-file-name-case  Ignore case when comparing file names."),
++  N_("--no-ignore-file-name-case  Consider case when comparing file names."),
++  N_("-E  --ignore-tab-expansion  Ignore changes due to tab expansion."),
++  N_("-b  --ignore-space-change  Ignore changes in the amount of white space."),
++  N_("-w  --ignore-all-space  Ignore all white space."),
++  N_("-B  --ignore-blank-lines  Ignore changes whose lines are all blank."),
++  N_("-I RE  --ignore-matching-lines=RE  Ignore changes whose lines all match RE."),
++  N_("--strip-trailing-cr  Strip trailing carriage return on input."),
+ #if O_BINARY
+-  N_("    --binary                    read and write data in binary mode"),
++  N_("--binary  Read and write data in binary mode."),
+ #endif
++  N_("-a  --text  Treat all files as text."),
+   "",
+-  N_("-D, --ifdef=NAME                output merged file with '#ifdef NAME' diffs"),
+-  N_("    --GTYPE-group-format=GFMT   format GTYPE input groups with GFMT"),
+-  N_("    --line-format=LFMT          format all input lines with LFMT"),
+-  N_("    --LTYPE-line-format=LFMT    format LTYPE input lines with LFMT"),
+-  N_("  These format options provide fine-grained control over the output\n"
+-     "    of diff, generalizing -D/--ifdef."),
++  N_("-c  -C NUM  --context[=NUM]  Output NUM (default 3) lines of copied context.\n\
++-u  -U NUM  --unified[=NUM]  Output NUM (default 3) lines of unified context.\n\
++  --label LABEL  Use LABEL instead of file name.\n\
++  -p  --show-c-function  Show which C function each change is in.\n\
++  -F RE  --show-function-line=RE  Show the most recent line matching RE."),
++  N_("-q  --brief  Output only whether files differ."),
++  N_("-e  --ed  Output an ed script."),
++  N_("--normal  Output a normal diff."),
++  N_("-n  --rcs  Output an RCS format diff."),
++  N_("-y  --side-by-side  Output in two columns.\n\
++  -W NUM  --width=NUM  Output at most NUM (default 130) print columns.\n\
++  --left-column  Output only the left column of common lines.\n\
++  --suppress-common-lines  Do not output common lines."),
++  N_("-D NAME  --ifdef=NAME  Output merged file to show '#ifdef NAME' diffs."),
++  N_("--GTYPE-group-format=GFMT  Similar, but format GTYPE input groups with GFMT."),
++  N_("--line-format=LFMT  Similar, but format all input lines with LFMT."),
++  N_("--LTYPE-line-format=LFMT  Similar, but format LTYPE input lines with LFMT."),
+   N_("  LTYPE is 'old', 'new', or 'unchanged'.  GTYPE is LTYPE or 'changed'."),
+-  N_("  GFMT (only) may contain:\n\
++  N_("  GFMT may contain:\n\
+     %<  lines from FILE1\n\
+     %>  lines from FILE2\n\
+     %=  lines common to FILE1 and FILE2\n\
+@@ -956,31 +885,41 @@ static char const * const option_help_ms
+         L  last line number\n\
+         N  number of lines = L-F+1\n\
+         E  F-1\n\
+-        M  L+1\n\
+-    %(A=B?T:E)  if A equals B then T else E"),
+-  N_("  LFMT (only) may contain:\n\
++        M  L+1"),
++  N_("  LFMT may contain:\n\
+     %L  contents of line\n\
+     %l  contents of line, excluding any trailing newline\n\
+     %[-][WIDTH][.[PREC]]{doxX}n  printf-style spec for input line number"),
+-  N_("  Both GFMT and LFMT may contain:\n\
++  N_("  Either GFMT or LFMT may contain:\n\
+     %%  %\n\
+     %c'C'  the single character C\n\
+-    %c'\\OOO'  the character with octal code OOO\n\
+-    C    the character C (other characters represent themselves)"),
++    %c'\\OOO'  the character with octal code OOO"),
+   "",
+-  N_("-d, --minimal            try hard to find a smaller set of changes"),
+-  N_("    --horizon-lines=NUM  keep NUM lines of the common prefix and suffix"),
+-  N_("    --speed-large-files  assume large files and many scattered small changes"),
+-  N_("    --color[=WHEN]       colorize the output; WHEN can be 'never', 'always',\n"
+-     "                           or 'auto' (the default)"),
+-  N_("    --palette=PALETTE    the colors to use when --color is active; PALETTE is\n"
+-     "                           a colon-separated list of terminfo capabilities"),
++  N_("-l  --paginate  Pass the output through 'pr' to paginate it."),
++  N_("-t  --expand-tabs  Expand tabs to spaces in output."),
++  N_("-T  --initial-tab  Make tabs line up by prepending a tab."),
++  N_("--tabsize=NUM  Tab stops are every NUM (default 8) print columns."),
++  N_("--suppress-blank-empty  Suppress space or tab before empty output lines."),
+   "",
+-  N_("    --help               display this help and exit"),
+-  N_("-v, --version            output version information and exit"),
++  N_("-r  --recursive  Recursively compare any subdirectories found."),
++  N_("-N  --new-file  Treat absent files as empty."),
++  N_("--unidirectional-new-file  Treat absent first files as empty."),
++  N_("-s  --report-identical-files  Report when two files are the same."),
++  N_("-x PAT  --exclude=PAT  Exclude files that match PAT."),
++  N_("-X FILE  --exclude-from=FILE  Exclude files that match any pattern in FILE."),
++  N_("-S FILE  --starting-file=FILE  Start with FILE when comparing directories."),
++  N_("--from-file=FILE1  Compare FILE1 to all operands.  FILE1 can be a directory."),
++  N_("--to-file=FILE2  Compare all operands to FILE2.  FILE2 can be a directory."),
+   "",
+-  N_("FILES are 'FILE1 FILE2' or 'DIR1 DIR2' or 'DIR FILE' or 'FILE DIR'."),
+-  N_("If --from-file or --to-file is given, there are no restrictions on FILE(s)."),
++  N_("--horizon-lines=NUM  Keep NUM lines of the common prefix and suffix."),
++  N_("-d  --minimal  Try hard to find a smaller set of changes."),
++  N_("--speed-large-files  Assume large files and many scattered small changes."),
++  "",
++  N_("-v  --version  Output version info."),
++  N_("--help  Output this help."),
++  "",
++  N_("FILES are 'FILE1 FILE2' or 'DIR1 DIR2' or 'DIR FILE...' or 'FILE... DIR'."),
++  N_("If --from-file or --to-file is given, there are no restrictions on FILES."),
+   N_("If a FILE is '-', read standard input."),
+   N_("Exit status is 0 if inputs are the same, 1 if different, 2 if trouble."),
+   0
+@@ -992,11 +931,6 @@ usage (void)
+   char const * const *p;
+ 
+   printf (_("Usage: %s [OPTION]... FILES\n"), program_name);
+-  printf ("%s\n\n", _("Compare FILES line by line."));
+-
+-  fputs (_("\
+-Mandatory arguments to long options are mandatory for short options too.\n\
+-"), stdout);
+ 
+   for (p = option_help_msgid;  *p;  p++)
+     {
+@@ -1024,7 +958,7 @@ Mandatory arguments to long options are
+ static void
+ specify_value (char const **var, char const *value, char const *option)
+ {
+-  if (*var && ! STREQ (*var, value))
++  if (*var && strcmp (*var, value) != 0)
+     {
+       error (0, 0, _("conflicting %s option value '%s'"), option, value);
+       try_help (NULL, NULL);
+@@ -1043,21 +977,6 @@ specify_style (enum output_style style)
+       output_style = style;
+     }
+ }
+-
+-/* Set the color mode.  */
+-static void
+-specify_colors_style (char const *value)
+-{
+-  if (value == NULL || STREQ (value, "auto"))
+-    colors_style = AUTO;
+-  else if (STREQ (value, "always"))
+-    colors_style = ALWAYS;
+-  else if (STREQ (value, "never"))
+-    colors_style = NEVER;
+-  else
+-    try_help ("invalid color '%s'", value);
+-}
+-
+ 
+ /* Set the last-modified time of *ST to be the current time.  */
+ 
+@@ -1148,9 +1067,9 @@ compare_files (struct comparison const *
+   else
+     {
+       cmp.file[0].name = free0
+-	= file_name_concat (parent->file[0].name, name0, NULL);
++	= dir_file_pathname (parent->file[0].name, name0);
+       cmp.file[1].name = free1
+-	= file_name_concat (parent->file[1].name, name1, NULL);
++	= dir_file_pathname (parent->file[1].name, name1);
+     }
+ 
+   /* Stat the files.  */
+@@ -1167,8 +1086,8 @@ compare_files (struct comparison const *
+ 	  else if (STREQ (cmp.file[f].name, "-"))
+ 	    {
+ 	      cmp.file[f].desc = STDIN_FILENO;
+-	      if (binary && ! isatty (STDIN_FILENO))
+-		set_binary_mode (STDIN_FILENO, O_BINARY);
++	      if (O_BINARY && binary && ! isatty (STDIN_FILENO))
++		xfreopen (NULL, "rb", stdin);
+ 	      if (fstat (STDIN_FILENO, &cmp.file[f].stat) != 0)
+ 		cmp.file[f].desc = ERRNO_ENCODE (errno);
+ 	      else
+@@ -1188,10 +1107,7 @@ compare_files (struct comparison const *
+ 		  set_mtime_to_now (&cmp.file[f].stat);
+ 		}
+ 	    }
+-	  else if ((no_dereference_symlinks
+-		    ? lstat (cmp.file[f].name, &cmp.file[f].stat)
+-		    : stat (cmp.file[f].name, &cmp.file[f].stat))
+-		   != 0)
++	  else if (stat (cmp.file[f].name, &cmp.file[f].stat) != 0)
+ 	    cmp.file[f].desc = ERRNO_ENCODE (errno);
+ 	}
+     }
+@@ -1207,11 +1123,9 @@ compare_files (struct comparison const *
+ 	    ? (S_ISREG (cmp.file[f].stat.st_mode)
+ 	       && ! (cmp.file[f].stat.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO))
+ 	       && cmp.file[f].stat.st_size == 0)
+-	    : ((cmp.file[f].desc == ERRNO_ENCODE (ENOENT)
+-		|| cmp.file[f].desc == ERRNO_ENCODE (EBADF))
++	    : (cmp.file[f].desc == ERRNO_ENCODE (ENOENT)
+ 	       && ! parent
+-	       && (cmp.file[1 - f].desc == UNOPENED
+-		   || cmp.file[1 - f].desc == STDIN_FILENO))))
++	       && cmp.file[1 - f].desc == UNOPENED)))
+       cmp.file[f].desc = NONEXISTENT;
+ 
+   for (f = 0; f < 2; f++)
+@@ -1242,15 +1156,12 @@ compare_files (struct comparison const *
+       char const *fnm = cmp.file[fnm_arg].name;
+       char const *dir = cmp.file[dir_arg].name;
+       char const *filename = cmp.file[dir_arg].name = free0
+-	= find_dir_file_pathname (dir, last_component (fnm));
++	= dir_file_pathname (dir, last_component (fnm));
+ 
+       if (STREQ (fnm, "-"))
+ 	fatal ("cannot compare '-' to a directory");
+ 
+-      if ((no_dereference_symlinks
+-	   ? lstat (filename, &cmp.file[dir_arg].stat)
+-	   : stat (filename, &cmp.file[dir_arg].stat))
+-	  != 0)
++      if (stat (filename, &cmp.file[dir_arg].stat) != 0)
+ 	{
+ 	  perror_with_name (filename);
+ 	  status = EXIT_TROUBLE;
+@@ -1297,10 +1208,8 @@ compare_files (struct comparison const *
+     }
+   else if ((DIR_P (0) | DIR_P (1))
+ 	   || (parent
+-	       && !((S_ISREG (cmp.file[0].stat.st_mode)
+-		     || S_ISLNK (cmp.file[0].stat.st_mode))
+-		    && (S_ISREG (cmp.file[1].stat.st_mode)
+-			|| S_ISLNK  (cmp.file[1].stat.st_mode)))))
++	       && (! S_ISREG (cmp.file[0].stat.st_mode)
++		   || ! S_ISREG (cmp.file[1].stat.st_mode))))
+     {
+       if (cmp.file[0].desc == NONEXISTENT || cmp.file[1].desc == NONEXISTENT)
+ 	{
+@@ -1341,62 +1250,10 @@ compare_files (struct comparison const *
+ 	  status = EXIT_FAILURE;
+ 	}
+     }
+-  else if (S_ISLNK (cmp.file[0].stat.st_mode)
+-	   || S_ISLNK (cmp.file[1].stat.st_mode))
+-    {
+-      /* We get here only if we use lstat(), not stat().  */
+-      assert (no_dereference_symlinks);
+-
+-      if (S_ISLNK (cmp.file[0].stat.st_mode)
+-	  && S_ISLNK (cmp.file[1].stat.st_mode))
+-	{
+-	  /* Compare the values of the symbolic links.  */
+-	  char *link_value[2] = { NULL, NULL };
+-
+-	  for (f = 0; f < 2; f++)
+-	    {
+-	      link_value[f] = xreadlink (cmp.file[f].name);
+-	      if (link_value[f] == NULL)
+-		{
+-		  perror_with_name (cmp.file[f].name);
+-		  status = EXIT_TROUBLE;
+-		  break;
+-		}
+-	    }
+-	  if (status == EXIT_SUCCESS)
+-	    {
+-	      if ( ! STREQ (link_value[0], link_value[1]))
+-		{
+-		  message ("Symbolic links %s and %s differ\n",
+-			   cmp.file[0].name, cmp.file[1].name);
+-		  /* This is a difference.  */
+-		  status = EXIT_FAILURE;
+-		}
+-	    }
+-	  for (f = 0; f < 2; f++)
+-	    free (link_value[f]);
+-	}
+-      else
+-	{
+-	  /* We have two files that are not to be compared, because
+-	     one of them is a symbolic link and the other one is not.  */
+-
+-	  message5 ("File %s is a %s while file %s is a %s\n",
+-		    file_label[0] ? file_label[0] : cmp.file[0].name,
+-		    file_type (&cmp.file[0].stat),
+-		    file_label[1] ? file_label[1] : cmp.file[1].name,
+-		    file_type (&cmp.file[1].stat));
+-
+-	  /* This is a difference.  */
+-	  status = EXIT_FAILURE;
+-	}
+-    }
+   else if (files_can_be_treated_as_binary
+ 	   && S_ISREG (cmp.file[0].stat.st_mode)
+ 	   && S_ISREG (cmp.file[1].stat.st_mode)
+-	   && cmp.file[0].stat.st_size != cmp.file[1].stat.st_size
+-	   && 0 < cmp.file[0].stat.st_size
+-	   && 0 < cmp.file[1].stat.st_size)
++	   && cmp.file[0].stat.st_size != cmp.file[1].stat.st_size)
+     {
+       message ("Files %s and %s differ\n",
+ 	       file_label[0] ? file_label[0] : cmp.file[0].name,
+diff -pru diffutils-3.0/dir.c diffutils-3.0-patch/dir.c
+--- diffutils-3.0/dir.c	2019-03-14 01:40:58.365481000 -0700
++++ diffutils-3.0-patch/dir.c	2019-03-14 01:40:51.290000000 -0700
+@@ -1,7 +1,7 @@
+ /* Read, sort and compare two directories.  Used for GNU DIFF.
+ 
+    Copyright (C) 1988-1989, 1992-1995, 1998, 2001-2002, 2004, 2006-2007,
+-   2009-2013, 2015-2017 Free Software Foundation, Inc.
++   2009-2010 Free Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -21,7 +21,6 @@
+ #include "diff.h"
+ #include <error.h>
+ #include <exclude.h>
+-#include <filenamecat.h>
+ #include <setjmp.h>
+ #include <xalloc.h>
+ 
+@@ -45,6 +44,7 @@ static bool locale_specific_sorting;
+ static jmp_buf failed_locale_specific_sorting;
+ 
+ static bool dir_loop (struct comparison const *, int);
++static int compare_names_for_qsort (void const *, void const *);
+ 
+ 
+ /* Read a directory and get its vector of names.  */
+@@ -84,7 +84,7 @@ dir_read (struct file_data const *dir, s
+       dirdata->data = data = xmalloc (data_alloc);
+ 
+       /* Read the directory entries, and insert the subfiles
+-	 into the 'data' table.  */
++	 into the `data' table.  */
+ 
+       while ((errno = 0, (next = readdir (reading)) != 0))
+ 	{
+@@ -125,7 +125,7 @@ dir_read (struct file_data const *dir, s
+ #endif
+     }
+ 
+-  /* Create the 'names' table from the 'data' table.  */
++  /* Create the `names' table from the `data' table.  */
+   if (PTRDIFF_MAX / sizeof *names - 1 <= nnames)
+     xalloc_die ();
+   dirdata->names = names = xmalloc ((nnames + 1) * sizeof *names);
+@@ -139,27 +139,6 @@ dir_read (struct file_data const *dir, s
+   return true;
+ }
+ 
+-/* Compare strings in a locale-specific way, returning a value
+-   compatible with strcmp.  */
+-
+-static int
+-compare_collated (char const *name1, char const *name2)
+-{
+-  int r;
+-  errno = 0;
+-  if (ignore_file_name_case)
+-    r = strcasecoll (name1, name2);
+-  else
+-    r = strcoll (name1, name2);
+-  if (errno)
+-    {
+-      error (0, errno, _("cannot compare file names '%s' and '%s'"),
+-	     name1, name2);
+-      longjmp (failed_locale_specific_sorting, 1);
+-    }
+-  return r;
+-}
+-
+ /* Compare file names, returning a value compatible with strcmp.  */
+ 
+ static int
+@@ -167,30 +146,34 @@ compare_names (char const *name1, char c
+ {
+   if (locale_specific_sorting)
+     {
+-      int diff = compare_collated (name1, name2);
+-      if (diff || ignore_file_name_case)
+-	return diff;
++      int r;
++      errno = 0;
++      if (ignore_file_name_case)
++	r = strcasecoll (name1, name2);
++      else
++	r = strcoll (name1, name2);
++      if (errno)
++	{
++	  error (0, errno, _("cannot compare file names '%s' and '%s'"),
++		 name1, name2);
++	  longjmp (failed_locale_specific_sorting, 1);
++	}
++      return r;
+     }
+-  return file_name_cmp (name1, name2);
++
++  return (ignore_file_name_case
++	  ? strcasecmp (name1, name2)
++	  : file_name_cmp (name1, name2));
+ }
+ 
+-/* Compare names FILE1 and FILE2 when sorting a directory.
+-   Prefer filtered comparison, breaking ties with file_name_cmp.  */
++/* A wrapper for compare_names suitable as an argument for qsort.  */
+ 
+ static int
+ compare_names_for_qsort (void const *file1, void const *file2)
+ {
+   char const *const *f1 = file1;
+   char const *const *f2 = file2;
+-  char const *name1 = *f1;
+-  char const *name2 = *f2;
+-  if (locale_specific_sorting)
+-    {
+-      int diff = compare_collated (name1, name2);
+-      if (diff)
+-	return diff;
+-    }
+-  return file_name_cmp (name1, name2);
++  return compare_names (*f1, *f2);
+ }
+ 
+ /* Compare the contents of two directories named in CMP.
+@@ -251,7 +234,7 @@ diff_dirs (struct comparison const *cmp,
+ 	qsort (names[i], dirdata[i].nnames, sizeof *dirdata[i].names,
+ 	       compare_names_for_qsort);
+ 
+-      /* If '-S name' was given, and this is the topmost level of comparison,
++      /* If `-S name' was given, and this is the topmost level of comparison,
+ 	 ignore all file names less than the specified starting name.  */
+ 
+       if (starting_file && ! cmp->parent)
+@@ -270,41 +253,6 @@ diff_dirs (struct comparison const *cmp,
+ 	     pretend the "next name" in that dir is very large.  */
+ 	  int nameorder = (!*names[0] ? 1 : !*names[1] ? -1
+ 			   : compare_names (*names[0], *names[1]));
+-
+-	  /* Prefer a file_name_cmp match if available.  This algorithm is
+-	     O(N**2), where N is the number of names in a directory
+-	     that compare_names says are all equal, but in practice N
+-	     is so small it's not worth tuning.  */
+-	  if (nameorder == 0 && ignore_file_name_case)
+-	    {
+-	      int raw_order = file_name_cmp (*names[0], *names[1]);
+-	      if (raw_order != 0)
+-		{
+-		  int greater_side = raw_order < 0;
+-		  int lesser_side = 1 - greater_side;
+-		  char const **lesser = names[lesser_side];
+-		  char const *greater_name = *names[greater_side];
+-		  char const **p;
+-
+-		  for (p = lesser + 1;
+-		       *p && compare_names (*p, greater_name) == 0;
+-		       p++)
+-		    {
+-		      int c = file_name_cmp (*p, greater_name);
+-		      if (0 <= c)
+-			{
+-			  if (c == 0)
+-			    {
+-			      memmove (lesser + 1, lesser,
+-				       (char *) p - (char *) lesser);
+-			      *lesser = greater_name;
+-			    }
+-			  break;
+-			}
+-		    }
+-		}
+-	    }
+-
+ 	  int v1 = (*handle_file) (cmp,
+ 				   0 < nameorder ? 0 : *names[0]++,
+ 				   nameorder < 0 ? 0 : *names[1]++);
+@@ -324,7 +272,7 @@ diff_dirs (struct comparison const *cmp,
+ 
+ /* Return nonzero if CMP is looping recursively in argument I.  */
+ 
+-static bool _GL_ATTRIBUTE_PURE
++static bool
+ dir_loop (struct comparison const *cmp, int i)
+ {
+   struct comparison const *p = cmp;
+@@ -333,53 +281,3 @@ dir_loop (struct comparison const *cmp,
+       return true;
+   return false;
+ }
+-
+-/* Find a matching filename in a directory.  */
+-
+-char *
+-find_dir_file_pathname (char const *dir, char const *file)
+-{
+-  /* The 'IF_LINT (volatile)' works around what appears to be a bug in
+-     gcc 4.8.0 20120825; see
+-     <http://lists.gnu.org/archive/html/bug-diffutils/2012-08/msg00007.html>.
+-     */
+-  char const * IF_LINT (volatile) match = file;
+-
+-  char *val;
+-  struct dirdata dirdata;
+-  dirdata.names = NULL;
+-  dirdata.data = NULL;
+-
+-  if (ignore_file_name_case)
+-    {
+-      struct file_data filedata;
+-      filedata.name = dir;
+-      filedata.desc = 0;
+-
+-      if (dir_read (&filedata, &dirdata))
+-	{
+-	  locale_specific_sorting = true;
+-	  if (setjmp (failed_locale_specific_sorting))
+-	    match = file; /* longjmp may mess up MATCH.  */
+-	  else
+-	    {
+-	      for (char const **p = dirdata.names; *p; p++)
+-		if (compare_names (*p, file) == 0)
+-		  {
+-		    if (file_name_cmp (*p, file) == 0)
+-		      {
+-			match = *p;
+-			break;
+-		      }
+-		    if (match == file)
+-		      match = *p;
+-		  }
+-	    }
+-	}
+-    }
+-
+-  val = file_name_concat (dir, match, NULL);
+-  free (dirdata.names);
+-  free (dirdata.data);
+-  return val;
+-}
+diff -pru diffutils-3.0/ed.c diffutils-3.0-patch/ed.c
+--- diffutils-3.0/ed.c	2019-03-14 01:40:58.368478000 -0700
++++ diffutils-3.0-patch/ed.c	2019-03-14 01:40:51.293996000 -0700
+@@ -1,7 +1,7 @@
+ /* Output routines for ed-script format.
+ 
+-   Copyright (C) 1988-1989, 1991-1993, 1995, 1998, 2001, 2004, 2006, 2009-2013,
+-   2015-2017 Free Software Foundation, Inc.
++   Copyright (C) 1988-1989, 1991-1993, 1995, 1998, 2001, 2004, 2006, 2009-2010
++   Free Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -144,7 +144,7 @@ static void
+ print_rcs_hunk (struct change *hunk)
+ {
+   lin i, f0, l0, f1, l1;
+-  printint tf0, tl0, tf1, tl1;
++  long int tf0, tl0, tf1, tl1;
+ 
+   /* Determine range of line numbers involved in each file.  */
+   enum changes changes = analyze_hunk (hunk, &f0, &l0, &f1, &l1);
+@@ -159,16 +159,14 @@ print_rcs_hunk (struct change *hunk)
+     {
+       /* For deletion, print just the starting line number from file 0
+ 	 and the number of lines deleted.  */
+-      fprintf (outfile, "d%"pI"d %"pI"d\n", tf0,
+-	       tf0 <= tl0 ? tl0 - tf0 + 1 : 1);
++      fprintf (outfile, "d%ld %ld\n", tf0, tf0 <= tl0 ? tl0 - tf0 + 1 : 1);
+     }
+ 
+   if (changes & NEW)
+     {
+       /* Take last-line-number from file 0 and # lines from file 1.  */
+       translate_range (&files[1], f1, l1, &tf1, &tl1);
+-      fprintf (outfile, "a%"pI"d %"pI"d\n", tl0,
+-	       tf1 <= tl1 ? tl1 - tf1 + 1 : 1);
++      fprintf (outfile, "a%ld %ld\n", tl0, tf1 <= tl1 ? tl1 - tf1 + 1 : 1);
+ 
+       /* Print the inserted lines.  */
+       for (i = f1; i <= l1; i++)
+diff -pru diffutils-3.0/ifdef.c diffutils-3.0-patch/ifdef.c
+--- diffutils-3.0/ifdef.c	2019-03-14 01:40:58.371475000 -0700
++++ diffutils-3.0-patch/ifdef.c	2019-03-14 01:40:51.297990000 -0700
+@@ -1,7 +1,7 @@
+ /* #ifdef-format output routines for GNU DIFF.
+ 
+-   Copyright (C) 1989, 1991-1994, 2001-2002, 2004, 2006, 2009-2013, 2015-2017
+-   Free Software Foundation, Inc.
++   Copyright (C) 1989, 1991-1994, 2001-2002, 2004, 2006, 2009-2010 Free
++   Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -132,7 +132,7 @@ format_group (register FILE *out, char c
+ 	    break;
+ 
+ 	  case '(':
+-	    /* Print if-then-else format e.g. '%(n=1?thenpart:elsepart)'.  */
++	    /* Print if-then-else format e.g. `%(n=1?thenpart:elsepart)'.  */
+ 	    {
+ 	      int i;
+ 	      uintmax_t value[2];
+@@ -357,22 +357,21 @@ do_printf_spec (FILE *out, char const *s
+ 
+ 	if (out)
+ 	  {
+-	    /* For example, if the spec is "%3xn" and pI is "l", use the printf
++	    /* For example, if the spec is "%3xn", use the printf
+ 	       format spec "%3lx".  Here the spec prefix is "%3".  */
+-	    printint print_value = value;
++	    long int long_value = value;
+ 	    size_t spec_prefix_len = f - spec - 2;
+-	    size_t pI_len = sizeof pI - 1;
+-#if 0
+-	    char format[spec_prefix_len + pI_len + 2];
++#if HAVE_C_VARARRAYS
++	    char format[spec_prefix_len + 3];
+ #else
+-	    char *format = xmalloc (spec_prefix_len + pI_len + 2);
++	    char *format = xmalloc (spec_prefix_len + 3);
+ #endif
+-	    char *p = format + spec_prefix_len + pI_len;
++	    char *p = format + spec_prefix_len;
+ 	    memcpy (format, spec, spec_prefix_len);
+-	    memcpy (format + spec_prefix_len, pI, pI_len);
++	    *p++ = 'l';
+ 	    *p++ = c;
+ 	    *p = '\0';
+-	    fprintf (out, format, print_value);
++	    fprintf (out, format, long_value);
+ #if ! HAVE_C_VARARRAYS
+ 	    free (format);
+ #endif
+diff -pru diffutils-3.0/io.c diffutils-3.0-patch/io.c
+--- diffutils-3.0/io.c	2019-03-14 01:40:58.375471000 -0700
++++ diffutils-3.0-patch/io.c	2019-03-14 01:40:51.312978000 -0700
+@@ -1,7 +1,7 @@
+ /* File I/O for GNU DIFF.
+ 
+-   Copyright (C) 1988-1989, 1992-1995, 1998, 2001-2002, 2004, 2006, 2009-2013,
+-   2015-2017 Free Software Foundation, Inc.
++   Copyright (C) 1988-1989, 1992-1995, 1998, 2001-2002, 2004, 2006, 2009-2010
++   Free Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -19,7 +19,6 @@
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+ 
+ #include "diff.h"
+-#include <binary-io.h>
+ #include <cmpbuf.h>
+ #include <file-type.h>
+ #include <xalloc.h>
+@@ -58,10 +57,10 @@ static size_t nbuckets;
+    The number of an equivalence class is its index in this array.  */
+ static struct equivclass *equivs;
+ 
+-/* Index of first free element in the array 'equivs'.  */
++/* Index of first free element in the array `equivs'.  */
+ static lin equivs_index;
+ 
+-/* Number of elements allocated in the array 'equivs'.  */
++/* Number of elements allocated in the array `equivs'.  */
+ static lin equivs_alloc;
+ 
+ /* Read a block of data into a file buffer, checking for EOF and error.  */
+@@ -108,35 +107,15 @@ sip (struct file_data *current, bool ski
+ 				     PTRDIFF_MAX - 2 * sizeof (word));
+       current->buffer = xmalloc (current->bufsize);
+ 
+-#ifdef __KLIBC__
+-      /* Skip test if seek is not possible */
+-      skip_test = skip_test
+-		  || (lseek (current->desc, 0, SEEK_CUR) < 0
+-		      && errno == ESPIPE);
+-#endif
+-
+       if (! skip_test)
+ 	{
+ 	  /* Check first part of file to see if it's a binary file.  */
+ 
+-	  int prev_mode = set_binary_mode (current->desc, O_BINARY);
+-	  off_t buffered;
+-	  file_block_read (current, current->bufsize);
+-	  buffered = current->buffered;
+-
+-	  if (prev_mode != O_BINARY)
+-	    {
+-	      /* Revert to text mode and seek back to the start to reread
+-		 the file.  Use relative seek, since file descriptors
+-		 like stdin might not start at offset zero.  */
+-	      if (lseek (current->desc, - buffered, SEEK_CUR) < 0)
+-		pfatal_with_name (current->name);
+-	      set_binary_mode (current->desc, prev_mode);
+-	      current->buffered = 0;
+-	      current->eof = false;
+-	    }
++	  /* FIXME: if O_BINARY, this should revert to text mode
++	     if the file is not binary.  */
+ 
+-	  return binary_file_p (current->buffer, buffered);
++	  file_block_read (current, current->bufsize);
++	  return binary_file_p (current->buffer, current->buffered);
+ 	}
+     }
+ 
+@@ -219,7 +198,9 @@ slurp (struct file_data *current)
+ static void
+ find_and_hash_each_line (struct file_data *current)
+ {
++  hash_value h;
+   char const *p = current->prefix_end;
++  unsigned char c;
+   lin i, *bucket;
+   size_t length;
+ 
+@@ -234,70 +215,122 @@ find_and_hash_each_line (struct file_dat
+   lin eqs_alloc = equivs_alloc;
+   char const *suffix_begin = current->suffix_begin;
+   char const *bufend = FILE_BUFFER (current) + current->buffered;
+-  bool ig_case = ignore_case;
+-  enum DIFF_white_space ig_white_space = ignore_white_space;
+   bool diff_length_compare_anyway =
+-    ig_white_space != IGNORE_NO_WHITE_SPACE;
++    ignore_white_space != IGNORE_NO_WHITE_SPACE;
+   bool same_length_diff_contents_compare_anyway =
+-    diff_length_compare_anyway | ig_case;
++    diff_length_compare_anyway | ignore_case;
+ 
+   while (p < suffix_begin)
+     {
+       char const *ip = p;
+-      hash_value h = 0;
+-      unsigned char c;
++
++      h = 0;
+ 
+       /* Hash this line until we find a newline.  */
+-      switch (ig_white_space)
+-	{
+-	case IGNORE_ALL_SPACE:
+-	  while ((c = *p++) != '\n')
+-	    if (! isspace (c))
+-	      h = HASH (h, ig_case ? tolower (c) : c);
+-	  break;
++      if (ignore_case)
++	switch (ignore_white_space)
++	  {
++	  case IGNORE_ALL_SPACE:
++	    while ((c = *p++) != '\n')
++	      if (! isspace (c))
++		h = HASH (h, tolower (c));
++	    break;
++
++	  case IGNORE_SPACE_CHANGE:
++	    while ((c = *p++) != '\n')
++	      {
++		if (isspace (c))
++		  {
++		    do
++		      if ((c = *p++) == '\n')
++			goto hashing_done;
++		    while (isspace (c));
++
++		    h = HASH (h, ' ');
++		  }
+ 
+-	case IGNORE_SPACE_CHANGE:
+-	  while ((c = *p++) != '\n')
++		/* C is now the first non-space.  */
++		h = HASH (h, tolower (c));
++	      }
++	    break;
++
++	  case IGNORE_TAB_EXPANSION:
+ 	    {
+-	      if (isspace (c))
++	      size_t column = 0;
++	      while ((c = *p++) != '\n')
+ 		{
+-		  do
+-		    if ((c = *p++) == '\n')
+-		      goto hashing_done;
+-		  while (isspace (c));
++		  size_t repetitions = 1;
+ 
+-		  h = HASH (h, ' ');
+-		}
++		  switch (c)
++		    {
++		    case '\b':
++		      column -= 0 < column;
++		      break;
++
++		    case '\t':
++		      c = ' ';
++		      repetitions = tabsize - column % tabsize;
++		      column = (column + repetitions < column
++				? 0
++				: column + repetitions);
++		      break;
++
++		    case '\r':
++		      column = 0;
++		      break;
+ 
+-	      /* C is now the first non-space.  */
+-	      h = HASH (h, ig_case ? tolower (c) : c);
++		    default:
++		      c = tolower (c);
++		      column++;
++		      break;
++		    }
++
++		  do
++		    h = HASH (h, c);
++		  while (--repetitions != 0);
++		}
+ 	    }
+-	  break;
++	    break;
+ 
+-	case IGNORE_TAB_EXPANSION:
+-	case IGNORE_TAB_EXPANSION_AND_TRAILING_SPACE:
+-	case IGNORE_TRAILING_SPACE:
++	  default:
++	    while ((c = *p++) != '\n')
++	      h = HASH (h, tolower (c));
++	    break;
++	  }
++      else
++	switch (ignore_white_space)
+ 	  {
+-	    size_t column = 0;
++	  case IGNORE_ALL_SPACE:
++	    while ((c = *p++) != '\n')
++	      if (! isspace (c))
++		h = HASH (h, c);
++	    break;
++
++	  case IGNORE_SPACE_CHANGE:
+ 	    while ((c = *p++) != '\n')
+ 	      {
+-		if (ig_white_space & IGNORE_TRAILING_SPACE
+-		    && isspace (c))
++		if (isspace (c))
+ 		  {
+-		    char const *p1 = p;
+-		    unsigned char c1;
+ 		    do
+-		      if ((c1 = *p1++) == '\n')
+-			{
+-			  p = p1;
+-			  goto hashing_done;
+-			}
+-		    while (isspace (c1));
++		      if ((c = *p++) == '\n')
++			goto hashing_done;
++		    while (isspace (c));
++
++		    h = HASH (h, ' ');
+ 		  }
+ 
+-		size_t repetitions = 1;
++		/* C is now the first non-space.  */
++		h = HASH (h, c);
++	      }
++	    break;
++
++	  case IGNORE_TAB_EXPANSION:
++	    {
++	      size_t column = 0;
++	      while ((c = *p++) != '\n')
++		{
++		  size_t repetitions = 1;
+ 
+-		if (ig_white_space & IGNORE_TAB_EXPANSION)
+ 		  switch (c)
+ 		    {
+ 		    case '\b':
+@@ -321,25 +354,18 @@ find_and_hash_each_line (struct file_dat
+ 		      break;
+ 		    }
+ 
+-		if (ig_case)
+-		  c = tolower (c);
+-
+-		do
+-		  h = HASH (h, c);
+-		while (--repetitions != 0);
+-	      }
+-	  }
+-	  break;
++		  do
++		    h = HASH (h, c);
++		  while (--repetitions != 0);
++		}
++	    }
++	    break;
+ 
+-	default:
+-	  if (ig_case)
+-	    while ((c = *p++) != '\n')
+-	      h = HASH (h, tolower (c));
+-	  else
++	  default:
+ 	    while ((c = *p++) != '\n')
+ 	      h = HASH (h, c);
+-	  break;
+-	}
++	    break;
++	  }
+ 
+    hashing_done:;
+ 
+@@ -355,7 +381,7 @@ find_and_hash_each_line (struct file_dat
+ 	     complete line, put it into buckets[-1] so that it can
+ 	     compare equal only to the other file's incomplete line
+ 	     (if one exists).  */
+-	  if (ig_white_space < IGNORE_TRAILING_SPACE)
++	  if (ignore_white_space < IGNORE_SPACE_CHANGE)
+ 	    bucket = &buckets[-1];
+ 	}
+ 
+@@ -481,6 +507,7 @@ prepare_text (struct file_data *current)
+ {
+   size_t buffered = current->buffered;
+   char *p = FILE_BUFFER (current);
++  char *dst;
+ 
+   if (buffered == 0 || p[buffered - 1] == '\n')
+     current->missing_newline = false;
+@@ -496,25 +523,16 @@ prepare_text (struct file_data *current)
+   /* Don't use uninitialized storage when planting or using sentinels.  */
+   memset (p + buffered, 0, sizeof (word));
+ 
+-  if (strip_trailing_cr)
++  if (strip_trailing_cr && (dst = memchr (p, '\r', buffered)))
+     {
+-      char *dst;
+-      char *srclim = p + buffered;
+-      *srclim = '\r';
+-      dst = rawmemchr (p, '\r');
++      char const *src = dst;
++      char const *srclim = p + buffered;
+ 
+-      if (dst != srclim)
+-	{
+-	  char const *src = dst;
+-	  do
+-	    {
+-	      *dst = *src++;
+-	      dst += ! (*dst == '\r' && *src == '\n');
+-	    }
+-	  while (src < srclim);
++      do
++	dst += ! ((*dst = *src++) == '\r' && *src == '\n');
++      while (src < srclim);
+ 
+-	  buffered -= src - dst;
+-	}
++      buffered -= src - dst;
+     }
+ 
+   current->buffered = buffered;
+@@ -545,7 +563,6 @@ find_identical_ends (struct file_data fi
+   lin i, lines;
+   size_t n0, n1;
+   lin alloc_lines0, alloc_lines1;
+-  bool prefix_needed;
+   lin buffered_prefix, prefix_count, prefix_mask;
+   lin middle_guess, suffix_guess;
+ 
+@@ -695,13 +712,12 @@ find_identical_ends (struct file_data fi
+   prefix_mask = prefix_count - 1;
+   lines = 0;
+   linbuf0 = xmalloc (alloc_lines0 * sizeof *linbuf0);
+-  prefix_needed = ! (no_diff_means_no_output
+-		     && filevec[0].prefix_end == p0
+-		     && filevec[1].prefix_end == p1);
+   p0 = buffer0;
+ 
+   /* If the prefix is needed, find the prefix lines.  */
+-  if (prefix_needed)
++  if (! (no_diff_means_no_output
++	 && filevec[0].prefix_end == p0
++	 && filevec[1].prefix_end == p1))
+     {
+       end0 = filevec[0].prefix_end;
+       while (p0 != end0)
+@@ -792,8 +808,7 @@ read_files (struct file_data filevec[],
+     }
+   if (appears_binary)
+     {
+-      set_binary_mode (filevec[0].desc, O_BINARY);
+-      set_binary_mode (filevec[1].desc, O_BINARY);
++      /* FIXME: If O_BINARY, this should set both files to binary mode.  */
+       return true;
+     }
+ 
+diff -pru diffutils-3.0/normal.c diffutils-3.0-patch/normal.c
+--- diffutils-3.0/normal.c	2019-03-14 01:40:58.378468000 -0700
++++ diffutils-3.0-patch/normal.c	2019-03-14 01:40:51.324963000 -0700
+@@ -1,7 +1,7 @@
+ /* Normal-format output routines for GNU DIFF.
+ 
+-   Copyright (C) 1988-1989, 1993, 1995, 1998, 2001, 2006, 2009-2013, 2015-2017
+-   Free Software Foundation, Inc.
++   Copyright (C) 1988-1989, 1993, 1995, 1998, 2001, 2006, 2009-2010 Free
++   Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -49,43 +49,21 @@ print_normal_hunk (struct change *hunk)
+   begin_output ();
+ 
+   /* Print out the line number header for this hunk */
+-  set_color_context (LINE_NUMBER_CONTEXT);
+   print_number_range (',', &files[0], first0, last0);
+   fputc (change_letter[changes], outfile);
+   print_number_range (',', &files[1], first1, last1);
+-  set_color_context (RESET_CONTEXT);
+   fputc ('\n', outfile);
+ 
+   /* Print the lines that the first file has.  */
+   if (changes & OLD)
+-    {
+-      if (first0 <= last0)
+-        set_color_context (DELETE_CONTEXT);
+-      for (i = first0; i <= last0; i++)
+-        {
+-          print_1_line_nl ("<", &files[0].linbuf[i], true);
+-          if (i == last0)
+-            set_color_context (RESET_CONTEXT);
+-          if (files[0].linbuf[i + 1][-1] == '\n')
+-            putc ('\n', outfile);
+-        }
+-    }
++    for (i = first0; i <= last0; i++)
++      print_1_line ("<", &files[0].linbuf[i]);
+ 
+   if (changes == CHANGED)
+     fputs ("---\n", outfile);
+ 
+   /* Print the lines that the second file has.  */
+   if (changes & NEW)
+-    {
+-      if (first1 <= last1)
+-        set_color_context (ADD_CONTEXT);
+-      for (i = first1; i <= last1; i++)
+-        {
+-          print_1_line_nl (">", &files[1].linbuf[i], true);
+-          if (i == last1)
+-            set_color_context (RESET_CONTEXT);
+-          if (files[1].linbuf[i + 1][-1] == '\n')
+-            putc ('\n', outfile);
+-        }
+-    }
++    for (i = first1; i <= last1; i++)
++      print_1_line (">", &files[1].linbuf[i]);
+ }
+diff -pru diffutils-3.0/sdiff.c diffutils-3.0-patch/sdiff.c
+--- diffutils-3.0/sdiff.c	2019-03-14 01:40:58.382463000 -0700
++++ diffutils-3.0-patch/sdiff.c	2019-03-14 01:40:51.327963000 -0700
+@@ -1,7 +1,7 @@
+ /* sdiff - side-by-side merge of file differences
+ 
+-   Copyright (C) 1992-1996, 1998, 2001-2002, 2004, 2006-2007, 2009-2013,
+-   2015-2017 Free Software Foundation, Inc.
++   Copyright (C) 1992-1996, 1998, 2001-2002, 2004, 2006-2007, 2009-2010 Free
++   Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -26,17 +26,16 @@
+ 
+ #include <c-stack.h>
+ #include <dirname.h>
+-#include "die.h"
+ #include <error.h>
+ #include <exitfail.h>
+ #include <file-type.h>
+ #include <getopt.h>
+ #include <progname.h>
+-#include <system-quote.h>
++#include <sh-quote.h>
+ #include <version-etc.h>
+ #include <xalloc.h>
+ 
+-/* The official name of this program (e.g., no 'g' prefix).  */
++/* The official name of this program (e.g., no `g' prefix).  */
+ #define PROGRAM_NAME "sdiff"
+ 
+ #define AUTHORS \
+@@ -51,7 +50,7 @@ static char const **diffargv;
+ static char * volatile tmpname;
+ static FILE *tmp;
+ 
+-#if HAVE_WORKING_FORK
++#if HAVE_WORKING_FORK || HAVE_WORKING_VFORK
+ static pid_t volatile diffpid;
+ #endif
+ 
+@@ -67,6 +66,7 @@ static void perror_fatal (char const *)
+ static void trapsigs (void);
+ static void untrapsig (int);
+ 
++#define NUM_SIGS (sizeof sigs / sizeof *sigs)
+ static int const sigs[] = {
+ #ifdef SIGHUP
+        SIGHUP,
+@@ -85,17 +85,14 @@ static int const sigs[] = {
+ #endif
+ #ifdef SIGPIPE
+        SIGPIPE,
++# define handler_index_of_SIGPIPE (NUM_SIGS - 2)
+ #endif
+        SIGINT
++#define handler_index_of_SIGINT (NUM_SIGS - 1)
+ };
+-enum
+-  {
+-    NUM_SIGS = sizeof sigs / sizeof *sigs,
+-    handler_index_of_SIGINT = NUM_SIGS - 1
+-  };
+ 
+ #if HAVE_SIGACTION
+-  /* Prefer 'sigaction' if available, since 'signal' can lose signals.  */
++  /* Prefer `sigaction' if available, since `signal' can lose signals.  */
+   static struct sigaction initial_action[NUM_SIGS];
+ # define initial_handler(i) (initial_action[i].sa_handler)
+   static void signal_handler (int, void (*) (int));
+@@ -105,6 +102,29 @@ enum
+ # define signal_handler(sig, handler) signal (sig, handler)
+ #endif
+ 
++#if ! HAVE_SIGPROCMASK
++# define sigset_t int
++# define sigemptyset(s) (*(s) = 0)
++# ifndef sigmask
++#  define sigmask(sig) (1 << ((sig) - 1))
++# endif
++# define sigaddset(s, sig) (*(s) |= sigmask (sig))
++# ifndef SIG_BLOCK
++#  define SIG_BLOCK 0
++# endif
++# ifndef SIG_SETMASK
++#  define SIG_SETMASK (! SIG_BLOCK)
++# endif
++# if ! HAVE_SIGBLOCK
++#  define sigblock(mask) (mask)
++#  define sigsetmask(mask) (mask)
++# endif
++# define sigprocmask(how, n, o) \
++    ((how) == SIG_BLOCK \
++     ? ((o) ? (*(sigset_t *) (o) = sigblock (*(n))) : sigblock (*(n))) \
++     : sigsetmask (*(n)))
++#endif
++
+ static bool diraccess (char const *);
+ static int temporary_file (void);
+ 
+@@ -136,7 +156,6 @@ static struct option const longopts[] =
+   {"ignore-matching-lines", 1, 0, 'I'},
+   {"ignore-space-change", 0, 0, 'b'},
+   {"ignore-tab-expansion", 0, 0, 'E'},
+-  {"ignore-trailing-space", 0, 0, 'Z'},
+   {"left-column", 0, 0, 'l'},
+   {"minimal", 0, 0, 'd'},
+   {"output", 1, 0, 'o'},
+@@ -156,8 +175,9 @@ try_help (char const *reason_msgid, char
+ {
+   if (reason_msgid)
+     error (0, 0, _(reason_msgid), operand);
+-  die (EXIT_TROUBLE, 0, _("Try '%s --help' for more information."),
++  error (EXIT_TROUBLE, 0, _("Try '%s --help' for more information."),
+ 	 program_name);
++  abort ();
+ }
+ 
+ static void
+@@ -170,31 +190,30 @@ check_stdout (void)
+ }
+ 
+ static char const * const option_help_msgid[] = {
+-  N_("-o, --output=FILE            operate interactively, sending output to FILE"),
++  N_("-o FILE  --output=FILE  Operate interactively, sending output to FILE."),
+   "",
+-  N_("-i, --ignore-case            consider upper- and lower-case to be the same"),
+-  N_("-E, --ignore-tab-expansion   ignore changes due to tab expansion"),
+-  N_("-Z, --ignore-trailing-space  ignore white space at line end"),
+-  N_("-b, --ignore-space-change    ignore changes in the amount of white space"),
+-  N_("-W, --ignore-all-space       ignore all white space"),
+-  N_("-B, --ignore-blank-lines     ignore changes whose lines are all blank"),
+-  N_("-I, --ignore-matching-lines=RE  ignore changes all whose lines match RE"),
+-  N_("    --strip-trailing-cr      strip trailing carriage return on input"),
+-  N_("-a, --text                   treat all files as text"),
++  N_("-i  --ignore-case  Consider upper- and lower-case to be the same."),
++  N_("-E  --ignore-tab-expansion  Ignore changes due to tab expansion."),
++  N_("-b  --ignore-space-change  Ignore changes in the amount of white space."),
++  N_("-W  --ignore-all-space  Ignore all white space."),
++  N_("-B  --ignore-blank-lines  Ignore changes whose lines are all blank."),
++  N_("-I RE  --ignore-matching-lines=RE  Ignore changes whose lines all match RE."),
++  N_("--strip-trailing-cr  Strip trailing carriage return on input."),
++  N_("-a  --text  Treat all files as text."),
+   "",
+-  N_("-w, --width=NUM              output at most NUM (default 130) print columns"),
+-  N_("-l, --left-column            output only the left column of common lines"),
+-  N_("-s, --suppress-common-lines  do not output common lines"),
++  N_("-w NUM  --width=NUM  Output at most NUM (default 130) print columns."),
++  N_("-l  --left-column  Output only the left column of common lines."),
++  N_("-s  --suppress-common-lines  Do not output common lines."),
+   "",
+-  N_("-t, --expand-tabs            expand tabs to spaces in output"),
+-  N_("    --tabsize=NUM            tab stops at every NUM (default 8) print columns"),
++  N_("-t  --expand-tabs  Expand tabs to spaces in output."),
++  N_("--tabsize=NUM  Tab stops are every NUM (default 8) print columns."),
+   "",
+-  N_("-d, --minimal                try hard to find a smaller set of changes"),
+-  N_("-H, --speed-large-files      assume large files, many scattered small changes"),
+-  N_("    --diff-program=PROGRAM   use PROGRAM to compare files"),
++  N_("-d  --minimal  Try hard to find a smaller set of changes."),
++  N_("-H  --speed-large-files  Assume large files and many scattered small changes."),
++  N_("--diff-program=PROGRAM  Use PROGRAM to compare files."),
+   "",
+-  N_("    --help                   display this help and exit"),
+-  N_("-v, --version                output version information and exit"),
++  N_("-v  --version  Output version info."),
++  N_("--help  Output this help."),
+   0
+ };
+ 
+@@ -204,12 +223,7 @@ usage (void)
+   char const * const *p;
+ 
+   printf (_("Usage: %s [OPTION]... FILE1 FILE2\n"), program_name);
+-  printf ("%s\n\n",
+-          _("Side-by-side merge of differences between FILE1 and FILE2."));
+-
+-  fputs (_("\
+-Mandatory arguments to long options are mandatory for short options too.\n\
+-"), stdout);
++  printf ("%s\n\n", _("Side-by-side merge of file differences."));
+   for (p = option_help_msgid;  *p;  p++)
+     if (**p)
+       printf ("  %s\n", _(*p));
+@@ -226,7 +240,7 @@ Mandatory arguments to long options are
+ static void
+ cleanup (int signo __attribute__((unused)))
+ {
+-#if HAVE_WORKING_FORK
++#if HAVE_WORKING_FORK || HAVE_WORKING_VFORK
+   if (0 < diffpid)
+     kill (diffpid, SIGPIPE);
+ #endif
+@@ -379,8 +393,8 @@ lf_copy (struct line_filter *lf, lin lin
+ 
+   while (lines)
+     {
+-      lf->bufpos = rawmemchr (lf->bufpos, '\n');
+-      if (lf->bufpos == lf->buflim)
++      lf->bufpos = (char *) memchr (lf->bufpos, '\n', lf->buflim - lf->bufpos);
++      if (! lf->bufpos)
+ 	{
+ 	  ck_fwrite (start, lf->buflim - start, outfile);
+ 	  if (! lf_refill (lf))
+@@ -403,8 +417,8 @@ lf_skip (struct line_filter *lf, lin lin
+ {
+   while (lines)
+     {
+-      lf->bufpos = rawmemchr (lf->bufpos, '\n');
+-      if (lf->bufpos == lf->buflim)
++      lf->bufpos = (char *) memchr (lf->bufpos, '\n', lf->buflim - lf->bufpos);
++      if (! lf->bufpos)
+ 	{
+ 	  if (! lf_refill (lf))
+ 	    break;
+@@ -424,7 +438,7 @@ lf_snarf (struct line_filter *lf, char *
+   for (;;)
+     {
+       char *start = lf->bufpos;
+-      char *next = rawmemchr (start, '\n');
++      char *next = (char *) memchr (start, '\n', lf->buflim + 1 - start);
+       size_t s = next - start;
+       if (bufsize <= s)
+ 	return 0;
+@@ -463,7 +477,7 @@ main (int argc, char *argv[])
+   diffarg (DEFAULT_DIFF_PROGRAM);
+ 
+   /* parse command line args */
+-  while ((opt = getopt_long (argc, argv, "abBdEHiI:lo:stvw:WZ", longopts, 0))
++  while ((opt = getopt_long (argc, argv, "abBdEHiI:lo:stvw:W", longopts, 0))
+ 	 != -1)
+     {
+       switch (opt)
+@@ -518,7 +532,7 @@ main (int argc, char *argv[])
+ 	  break;
+ 
+ 	case 'v':
+-	  version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, Version,
++	  version_etc (stdout, PROGRAM_NAME, PACKAGE_NAME, PACKAGE_VERSION,
+ 		       AUTHORS, (char *) NULL);
+ 	  check_stdout ();
+ 	  return EXIT_SUCCESS;
+@@ -532,10 +546,6 @@ main (int argc, char *argv[])
+ 	  diffarg ("-w");
+ 	  break;
+ 
+-	case 'Z':
+-	  diffarg ("-Z");
+-	  break;
+-
+ 	case DIFF_PROGRAM_OPTION:
+ 	  diffargv[0] = optarg;
+ 	  break;
+@@ -608,9 +618,21 @@ main (int argc, char *argv[])
+ 
+       trapsigs ();
+ 
+-#if ! HAVE_WORKING_FORK
++#if ! (HAVE_WORKING_FORK || HAVE_WORKING_VFORK)
+       {
+-	char *command = system_quote_argv (SCI_SYSTEM, (char **) diffargv);
++	size_t cmdsize = 1;
++	char *p, *command;
++	int i;
++
++	for (i = 0;  diffargv[i];  i++)
++	  cmdsize += shell_quote_length (diffargv[i]) + 1;
++	command = p = xmalloc (cmdsize);
++	for (i = 0;  diffargv[i];  i++)
++	  {
++	    p = shell_quote_copy (p, diffargv[i]);
++	    *p++ = ' ';
++	  }
++	p[-1] = 0;
+ 	errno = 0;
+ 	diffout = popen (command, "r");
+ 	if (! diffout)
+@@ -620,11 +642,22 @@ main (int argc, char *argv[])
+ #else
+       {
+ 	int diff_fds[2];
++# if HAVE_WORKING_VFORK
++	sigset_t procmask;
++	sigset_t blocked;
++# endif
+ 
+ 	if (pipe (diff_fds) != 0)
+ 	  perror_fatal ("pipe");
+ 
+-	diffpid = fork ();
++# if HAVE_WORKING_VFORK
++	/* Block SIGINT and SIGPIPE.  */
++	sigemptyset (&blocked);
++	sigaddset (&blocked, SIGINT);
++	sigaddset (&blocked, SIGPIPE);
++	sigprocmask (SIG_BLOCK, &blocked, &procmask);
++# endif
++	diffpid = vfork ();
+ 	if (diffpid < 0)
+ 	  perror_fatal ("fork");
+ 	if (! diffpid)
+@@ -636,6 +669,10 @@ main (int argc, char *argv[])
+ 	    if (initial_handler (handler_index_of_SIGINT) != SIG_IGN)
+ 	      signal_handler (SIGINT, SIG_IGN);
+ 	    signal_handler (SIGPIPE, SIG_DFL);
++# if HAVE_WORKING_VFORK
++	    /* Stop blocking SIGINT and SIGPIPE in the child.  */
++	    sigprocmask (SIG_SETMASK, &procmask, 0);
++# endif
+ 	    close (diff_fds[0]);
+ 	    if (diff_fds[1] != STDOUT_FILENO)
+ 	      {
+@@ -647,6 +684,19 @@ main (int argc, char *argv[])
+ 	    _exit (errno == ENOENT ? 127 : 126);
+ 	  }
+ 
++# if HAVE_WORKING_VFORK
++	/* Restore the parent's SIGINT and SIGPIPE behavior.  */
++	if (initial_handler (handler_index_of_SIGINT) != SIG_IGN)
++	  signal_handler (SIGINT, catchsig);
++	if (initial_handler (handler_index_of_SIGPIPE) != SIG_IGN)
++	  signal_handler (SIGPIPE, catchsig);
++	else
++	  signal_handler (SIGPIPE, SIG_IGN);
++
++	/* Stop blocking SIGINT and SIGPIPE in the parent.  */
++	sigprocmask (SIG_SETMASK, &procmask, 0);
++# endif
++
+ 	close (diff_fds[1]);
+ 	diffout = fdopen (diff_fds[0], "r");
+ 	if (! diffout)
+@@ -668,7 +718,7 @@ main (int argc, char *argv[])
+ 	int wstatus;
+ 	int werrno = 0;
+ 
+-#if ! HAVE_WORKING_FORK
++#if ! (HAVE_WORKING_FORK || HAVE_WORKING_VFORK)
+ 	wstatus = pclose (diffout);
+ 	if (wstatus == -1)
+ 	  werrno = errno;
+@@ -697,7 +747,7 @@ main (int argc, char *argv[])
+ 	exit (WEXITSTATUS (wstatus));
+       }
+     }
+-  return EXIT_SUCCESS;			/* Fool '-Wall'.  */
++  return EXIT_SUCCESS;			/* Fool `-Wall'.  */
+ }
+ 
+ static void
+@@ -918,10 +968,10 @@ edit (struct line_filter *left, char con
+ 		  cmd0 = 'q';
+ 		  break;
+ 		}
+-	      FALLTHROUGH;
++	      /* Fall through.  */
+ 	    default:
+ 	      flush_line ();
+-	      FALLTHROUGH;
++	      /* Fall through.  */
+ 	    case '\n':
+ 	      give_help ();
+ 	      continue;
+@@ -967,14 +1017,14 @@ edit (struct line_filter *left, char con
+ 	      case 'd':
+ 		if (llen)
+ 		  {
+-		    printint l1 = lline;
+-		    printint l2 = lline + llen - 1;
+ 		    if (llen == 1)
+-		      fprintf (tmp, "--- %s %"pI"d\n", lname, l1);
++		      fprintf (tmp, "--- %s %ld\n", lname, (long int) lline);
+ 		    else
+-		      fprintf (tmp, "--- %s %"pI"d,%"pI"d\n", lname, l1, l2);
++		      fprintf (tmp, "--- %s %ld,%ld\n", lname,
++			       (long int) lline,
++			       (long int) (lline + llen - 1));
+ 		  }
+-		FALLTHROUGH;
++		/* Fall through.  */
+ 	      case '1': case 'b': case 'l':
+ 		lf_copy (left, llen, tmp);
+ 		break;
+@@ -989,14 +1039,14 @@ edit (struct line_filter *left, char con
+ 	      case 'd':
+ 		if (rlen)
+ 		  {
+-		    printint l1 = rline;
+-		    printint l2 = rline + rlen - 1;
+ 		    if (rlen == 1)
+-		      fprintf (tmp, "+++ %s %"pI"d\n", rname, l1);
++		      fprintf (tmp, "+++ %s %ld\n", rname, (long int) rline);
+ 		    else
+-		      fprintf (tmp, "+++ %s %"pI"d,%"pI"d\n", rname, l1, l2);
++		      fprintf (tmp, "+++ %s %ld,%ld\n", rname,
++			       (long int) rline,
++			       (long int) (rline + rlen - 1));
+ 		  }
+-		FALLTHROUGH;
++		/* Fall through.  */
+ 	      case '2': case 'b': case 'r':
+ 		lf_copy (right, rlen, tmp);
+ 		break;
+@@ -1011,17 +1061,16 @@ edit (struct line_filter *left, char con
+ 	    {
+ 	      int wstatus;
+ 	      int werrno = 0;
+-	      char const *argv[3];
+-
+ 	      ignore_SIGINT = true;
+ 	      checksigs ();
+-	      argv[0] = editor_program;
+-	      argv[1] = tmpname;
+-	      argv[2] = 0;
+ 
+ 	      {
+-#if ! HAVE_WORKING_FORK
+-		char *command = system_quote_argv (SCI_SYSTEM, (char **) argv);
++#if ! (HAVE_WORKING_FORK || HAVE_WORKING_VFORK)
++		char *command =
++		  xmalloc (shell_quote_length (editor_program)
++			   + 1 + strlen (tmpname) + 1);
++		sprintf (shell_quote_copy (command, editor_program),
++			 " %s", tmpname);
+ 		wstatus = system (command);
+ 		if (wstatus == -1)
+ 		  werrno = errno;
+@@ -1029,9 +1078,16 @@ edit (struct line_filter *left, char con
+ #else
+ 		pid_t pid;
+ 
+-		pid = fork ();
++		pid = vfork ();
+ 		if (pid == 0)
+ 		  {
++		    char const *argv[3];
++		    int i = 0;
++
++		    argv[i++] = editor_program;
++		    argv[i++] = tmpname;
++		    argv[i] = 0;
++
+ 		    execvp (editor_program, (char **) argv);
+ 		    _exit (errno == ENOENT ? 127 : 126);
+ 		  }
+@@ -1099,14 +1155,12 @@ interact (struct line_filter *diff,
+ 	  uintmax_t val;
+ 	  lin llen, rlen, lenmax;
+ 	  errno = 0;
+-	  val = strtoumax (diff_help + 1, &numend, 10);
+-	  if (LIN_MAX < val || errno || *numend != ',')
++	  llen = val = strtoumax (diff_help + 1, &numend, 10);
++	  if (llen < 0 || llen != val || errno || *numend != ',')
+ 	    fatal (diff_help);
+-	  llen = val;
+-	  val = strtoumax (numend + 1, &numend, 10);
+-	  if (LIN_MAX < val || errno || *numend)
++	  rlen = val = strtoumax (numend + 1, &numend, 10);
++	  if (rlen < 0 || rlen != val || errno || *numend)
+ 	    fatal (diff_help);
+-	  rlen = val;
+ 
+ 	  lenmax = MAX (llen, rlen);
+ 
+@@ -1165,9 +1219,18 @@ temporary_file (void)
+   char const *dir = tmpdir ? tmpdir : P_tmpdir;
+   char *buf = xmalloc (strlen (dir) + 1 + 5 + 6 + 1);
+   int fd;
++  int e;
++  sigset_t procmask;
++  sigset_t blocked;
+   sprintf (buf, "%s/sdiffXXXXXX", dir);
++  sigemptyset (&blocked);
++  sigaddset (&blocked, SIGINT);
++  sigprocmask (SIG_BLOCK, &blocked, &procmask);
+   fd = mkstemp (buf);
++  e = errno;
+   if (0 <= fd)
+     tmpname = buf;
++  sigprocmask (SIG_SETMASK, &procmask, 0);
++  errno = e;
+   return fd;
+ }
+diff -pru diffutils-3.0/side.c diffutils-3.0-patch/side.c
+--- diffutils-3.0/side.c	2019-03-14 01:40:58.398448000 -0700
++++ diffutils-3.0-patch/side.c	2019-03-14 01:40:51.331961000 -0700
+@@ -1,7 +1,7 @@
+ /* sdiff-format output routines for GNU DIFF.
+ 
+-   Copyright (C) 1991-1993, 1998, 2001-2002, 2004, 2009-2013, 2015-2017 Free
+-   Software Foundation, Inc.
++   Copyright (C) 1991-1993, 1998, 2001-2002, 2004, 2009-2010 Free Software
++   Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -150,7 +150,7 @@ print_half_line (char const *const *line
+ 		break;
+ 	      }
+ 	  }
+-	  FALLTHROUGH;
++	  /* Fall through.  */
+ 	case '\f':
+ 	case '\v':
+ 	  if (in_position < out_bound)
+@@ -206,18 +206,6 @@ print_1sdiff_line (char const *const *le
+   size_t c2o = sdiff_column2_offset;
+   size_t col = 0;
+   bool put_newline = false;
+-  bool color_to_reset = false;
+-
+-  if (sep == '<')
+-    {
+-      set_color_context (DELETE_CONTEXT);
+-      color_to_reset = true;
+-    }
+-  else if (sep == '>')
+-    {
+-      set_color_context (ADD_CONTEXT);
+-      color_to_reset = true;
+-    }
+ 
+   if (left)
+     {
+@@ -245,9 +233,6 @@ print_1sdiff_line (char const *const *le
+ 
+   if (put_newline)
+     putc ('\n', out);
+-
+-  if (color_to_reset)
+-    set_color_context (RESET_CONTEXT);
+ }
+ 
+ /* Print lines common to both files in side-by-side format.  */
+@@ -260,9 +245,9 @@ print_sdiff_common_lines (lin limit0, li
+     {
+       if (sdiff_merge_assist)
+ 	{
+-	  printint len0 = limit0 - i0;
+-	  printint len1 = limit1 - i1;
+-	  fprintf (outfile, "i%"pI"d,%"pI"d\n", len0, len1);
++	  long int len0 = limit0 - i0;
++	  long int len1 = limit1 - i1;
++	  fprintf (outfile, "i%ld,%ld\n", len0, len1);
+ 	}
+ 
+       if (!left_column)
+@@ -302,12 +287,12 @@ print_sdiff_hunk (struct change *hunk)
+ 
+   if (sdiff_merge_assist)
+     {
+-      printint len0 = last0 - first0 + 1;
+-      printint len1 = last1 - first1 + 1;
+-      fprintf (outfile, "c%"pI"d,%"pI"d\n", len0, len1);
++      long int len0 = last0 - first0 + 1;
++      long int len1 = last1 - first1 + 1;
++      fprintf (outfile, "c%ld,%ld\n", len0, len1);
+     }
+ 
+-  /* Print "xxx  |  xxx " lines.  */
++  /* Print ``xxx  |  xxx '' lines */
+   if (changes == CHANGED)
+     {
+       for (i = first0, j = first1;  i <= last0 && j <= last1;  i++, j++)
+@@ -317,7 +302,7 @@ print_sdiff_hunk (struct change *hunk)
+       next1 = first1 = j;
+     }
+ 
+-  /* Print "     >  xxx " lines.  */
++  /* Print ``     >  xxx '' lines */
+   if (changes & NEW)
+     {
+       for (j = first1; j <= last1; ++j)
+@@ -325,7 +310,7 @@ print_sdiff_hunk (struct change *hunk)
+       next1 = j;
+     }
+ 
+-  /* Print "xxx  <     " lines.  */
++  /* Print ``xxx  <     '' lines */
+   if (changes & OLD)
+     {
+       for (i = first0; i <= last0; ++i)
+diff -pru diffutils-3.0/util.c diffutils-3.0-patch/util.c
+--- diffutils-3.0/util.c	2019-03-14 01:40:58.403443000 -0700
++++ diffutils-3.0-patch/util.c	2019-03-14 01:40:51.338949000 -0700
+@@ -1,7 +1,7 @@
+ /* Support routines for GNU DIFF.
+ 
+-   Copyright (C) 1988-1989, 1992-1995, 1998, 2001-2002, 2004, 2006, 2009-2013,
+-   2015-2017 Free Software Foundation, Inc.
++   Copyright (C) 1988-1989, 1992-1995, 1998, 2001-2002, 2004, 2006, 2009-2010
++   Free Software Foundation, Inc.
+ 
+    This file is part of GNU DIFF.
+ 
+@@ -19,34 +19,15 @@
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+ 
+ #include "diff.h"
+-#include "argmatch.h"
+-#include "die.h"
+ #include <dirname.h>
+ #include <error.h>
+-#include <system-quote.h>
++#include <sh-quote.h>
+ #include <xalloc.h>
+-#include "xvasprintf.h"
+-#include <signal.h>
+-
+-/* Use SA_NOCLDSTOP as a proxy for whether the sigaction machinery is
+-   present.  */
+-#ifndef SA_NOCLDSTOP
+-# define SA_NOCLDSTOP 0
+-# define sigprocmask(How, Set, Oset) /* empty */
+-# define sigset_t int
+-# if ! HAVE_SIGINTERRUPT
+-#  define siginterrupt(sig, flag) /* empty */
+-# endif
+-#endif
+-
+-#ifndef SA_RESTART
+-# define SA_RESTART 0
+-#endif
+ 
+ char const pr_program[] = PR_PROGRAM;
+ 
+ /* Queue up one-line messages to be printed at the end,
+-   when -l is specified.  Each message is recorded with a 'struct msg'.  */
++   when -l is specified.  Each message is recorded with a `struct msg'.  */
+ 
+ struct msg
+ {
+@@ -78,7 +59,8 @@ pfatal_with_name (char const *name)
+ {
+   int e = errno;
+   print_message_queue ();
+-  die (EXIT_TROUBLE, e, "%s", name);
++  error (EXIT_TROUBLE, e, "%s", name);
++  abort ();
+ }
+ 
+ /* Print an error message containing MSGID, then exit.  */
+@@ -87,7 +69,8 @@ void
+ fatal (char const *msgid)
+ {
+   print_message_queue ();
+-  die (EXIT_TROUBLE, 0, "%s", _(msgid));
++  error (EXIT_TROUBLE, 0, "%s", _(msgid));
++  abort ();
+ }
+ 
+ /* Like printf, except if -l in effect then save the message and print later.
+@@ -138,7 +121,7 @@ message5 (char const *format_msgid, char
+     }
+ }
+ 
+-/* Output all the messages that were saved up by calls to 'message'.  */
++/* Output all the messages that were saved up by calls to `message'.  */
+ 
+ void
+ print_message_queue (void)
+@@ -159,574 +142,16 @@ print_message_queue (void)
+     }
+ }
+ 
+-/* The set of signals that are caught.  */
+-
+-static sigset_t caught_signals;
+-
+-/* If nonzero, the value of the pending fatal signal.  */
+-
+-static sig_atomic_t volatile interrupt_signal;
+-
+-/* A count of the number of pending stop signals that have been received.  */
+-
+-static sig_atomic_t volatile stop_signal_count;
+-
+-/* An ordinary signal was received; arrange for the program to exit.  */
+-
+-static void
+-sighandler (int sig)
+-{
+-  if (! SA_NOCLDSTOP)
+-    signal (sig, SIG_IGN);
+-  if (! interrupt_signal)
+-    interrupt_signal = sig;
+-}
+-
+-/* A SIGTSTP was received; arrange for the program to suspend itself.  */
+-
+-static void
+-stophandler (int sig)
+-{
+-  if (! SA_NOCLDSTOP)
+-    signal (sig, stophandler);
+-  if (! interrupt_signal)
+-    stop_signal_count++;
+-}
+-/* Process any pending signals.  If signals are caught, this function
+-   should be called periodically.  Ideally there should never be an
+-   unbounded amount of time when signals are not being processed.
+-   Signal handling can restore the default colors, so callers must
+-   immediately change colors after invoking this function.  */
+-
+-static void
+-process_signals (void)
+-{
+-  while (interrupt_signal || stop_signal_count)
+-    {
+-      int sig;
+-      int stops;
+-      sigset_t oldset;
+-
+-      set_color_context (RESET_CONTEXT);
+-      fflush (stdout);
+-
+-      sigprocmask (SIG_BLOCK, &caught_signals, &oldset);
+-
+-      /* Reload interrupt_signal and stop_signal_count, in case a new
+-         signal was handled before sigprocmask took effect.  */
+-      sig = interrupt_signal;
+-      stops = stop_signal_count;
+-
+-      /* SIGTSTP is special, since the application can receive that signal
+-         more than once.  In this case, don't set the signal handler to the
+-         default.  Instead, just raise the uncatchable SIGSTOP.  */
+-      if (stops)
+-        {
+-          stop_signal_count = stops - 1;
+-          sig = SIGSTOP;
+-        }
+-      else
+-        signal (sig, SIG_DFL);
+-
+-      /* Exit or suspend the program.  */
+-      raise (sig);
+-      sigprocmask (SIG_SETMASK, &oldset, NULL);
+-
+-      /* If execution reaches here, then the program has been
+-         continued (after being suspended).  */
+-    }
+-}
+-
+-static void
+-install_signal_handlers (void)
+-{
+-  /* The signals that are trapped, and the number of such signals.  */
+-  static int const sig[] =
+-    {
+-      /* This one is handled specially.  */
+-      SIGTSTP,
+-
+-      /* The usual suspects.  */
+-      SIGALRM, SIGHUP, SIGINT, SIGPIPE, SIGQUIT, SIGTERM,
+-#ifdef SIGPOLL
+-      SIGPOLL,
+-#endif
+-#ifdef SIGPROF
+-      SIGPROF,
+-#endif
+-#ifdef SIGVTALRM
+-      SIGVTALRM,
+-#endif
+-#ifdef SIGXCPU
+-      SIGXCPU,
+-#endif
+-#ifdef SIGXFSZ
+-      SIGXFSZ,
+-#endif
+-    };
+-  enum { nsigs = sizeof (sig) / sizeof *(sig) };
+-
+-#if ! SA_NOCLDSTOP
+-  bool caught_sig[nsigs];
+-#endif
+-  {
+-    int j;
+-#if SA_NOCLDSTOP
+-    struct sigaction act;
+-
+-    sigemptyset (&caught_signals);
+-    for (j = 0; j < nsigs; j++)
+-      {
+-        sigaction (sig[j], NULL, &act);
+-        if (act.sa_handler != SIG_IGN)
+-          sigaddset (&caught_signals, sig[j]);
+-      }
+-
+-    act.sa_mask = caught_signals;
+-    act.sa_flags = SA_RESTART;
++/* Call before outputting the results of comparing files NAME0 and NAME1
++   to set up OUTFILE, the stdio stream for the output to go to.
+ 
+-    for (j = 0; j < nsigs; j++)
+-      if (sigismember (&caught_signals, sig[j]))
+-        {
+-          act.sa_handler = sig[j] == SIGTSTP ? stophandler : sighandler;
+-          sigaction (sig[j], &act, NULL);
+-        }
+-#else
+-    for (j = 0; j < nsigs; j++)
+-      {
+-        caught_sig[j] = (signal (sig[j], SIG_IGN) != SIG_IGN);
+-        if (caught_sig[j])
+-          {
+-            signal (sig[j], sig[j] == SIGTSTP ? stophandler : sighandler);
+-            siginterrupt (sig[j], 0);
+-          }
+-      }
+-#endif
+-    }
+-}
++   Usually, OUTFILE is just stdout.  But when -l was specified
++   we fork off a `pr' and make OUTFILE a pipe to it.
++   `pr' then outputs to our stdout.  */
+ 
+ static char const *current_name0;
+ static char const *current_name1;
+ static bool currently_recursive;
+-static bool colors_enabled;
+-
+-static struct color_ext_type *color_ext_list = NULL;
+-
+-struct bin_str
+-  {
+-    size_t len;			/* Number of bytes */
+-    const char *string;		/* Pointer to the same */
+-  };
+-
+-struct color_ext_type
+-  {
+-    struct bin_str ext;		/* The extension we're looking for */
+-    struct bin_str seq;		/* The sequence to output when we do */
+-    struct color_ext_type *next;	/* Next in list */
+-  };
+-
+-/* Parse a string as part of the --palette argument; this may involve
+-   decoding all kinds of escape characters.  If equals_end is set an
+-   unescaped equal sign ends the string, otherwise only a : or \0
+-   does.  Set *OUTPUT_COUNT to the number of bytes output.  Return
+-   true if successful.
+-
+-   The resulting string is *not* null-terminated, but may contain
+-   embedded nulls.
+-
+-   Note that both dest and src are char **; on return they point to
+-   the first free byte after the array and the character that ended
+-   the input string, respectively.  */
+-
+-static bool
+-get_funky_string (char **dest, const char **src, bool equals_end,
+-                  size_t *output_count)
+-{
+-  char num;			/* For numerical codes */
+-  size_t count;			/* Something to count with */
+-  enum {
+-    ST_GND, ST_BACKSLASH, ST_OCTAL, ST_HEX, ST_CARET, ST_END, ST_ERROR
+-  } state;
+-  const char *p;
+-  char *q;
+-
+-  p = *src;			/* We don't want to double-indirect */
+-  q = *dest;			/* the whole darn time.  */
+-
+-  count = 0;			/* No characters counted in yet.  */
+-  num = 0;
+-
+-  state = ST_GND;		/* Start in ground state.  */
+-  while (state < ST_END)
+-    {
+-      switch (state)
+-        {
+-        case ST_GND:		/* Ground state (no escapes) */
+-          switch (*p)
+-            {
+-            case ':':
+-            case '\0':
+-              state = ST_END;	/* End of string */
+-              break;
+-            case '\\':
+-              state = ST_BACKSLASH; /* Backslash scape sequence */
+-              ++p;
+-              break;
+-            case '^':
+-              state = ST_CARET; /* Caret escape */
+-              ++p;
+-              break;
+-            case '=':
+-              if (equals_end)
+-                {
+-                  state = ST_END; /* End */
+-                  break;
+-                }
+-              FALLTHROUGH;
+-            default:
+-              *(q++) = *(p++);
+-              ++count;
+-              break;
+-            }
+-          break;
+-
+-        case ST_BACKSLASH:	/* Backslash escaped character */
+-          switch (*p)
+-            {
+-            case '0':
+-            case '1':
+-            case '2':
+-            case '3':
+-            case '4':
+-            case '5':
+-            case '6':
+-            case '7':
+-              state = ST_OCTAL;	/* Octal sequence */
+-              num = *p - '0';
+-              break;
+-            case 'x':
+-            case 'X':
+-              state = ST_HEX;	/* Hex sequence */
+-              num = 0;
+-              break;
+-            case 'a':		/* Bell */
+-              num = '\a';
+-              break;
+-            case 'b':		/* Backspace */
+-              num = '\b';
+-              break;
+-            case 'e':		/* Escape */
+-              num = 27;
+-              break;
+-            case 'f':		/* Form feed */
+-              num = '\f';
+-              break;
+-            case 'n':		/* Newline */
+-              num = '\n';
+-              break;
+-            case 'r':		/* Carriage return */
+-              num = '\r';
+-              break;
+-            case 't':		/* Tab */
+-              num = '\t';
+-              break;
+-            case 'v':		/* Vtab */
+-              num = '\v';
+-              break;
+-            case '?':		/* Delete */
+-              num = 127;
+-              break;
+-            case '_':		/* Space */
+-              num = ' ';
+-              break;
+-            case '\0':		/* End of string */
+-              state = ST_ERROR;	/* Error! */
+-              break;
+-            default:		/* Escaped character like \ ^ : = */
+-              num = *p;
+-              break;
+-            }
+-          if (state == ST_BACKSLASH)
+-            {
+-              *(q++) = num;
+-              ++count;
+-              state = ST_GND;
+-            }
+-          ++p;
+-          break;
+-
+-        case ST_OCTAL:		/* Octal sequence */
+-          if (*p < '0' || *p > '7')
+-            {
+-              *(q++) = num;
+-              ++count;
+-              state = ST_GND;
+-            }
+-          else
+-            num = (num << 3) + (*(p++) - '0');
+-          break;
+-
+-        case ST_HEX:		/* Hex sequence */
+-          switch (*p)
+-            {
+-            case '0':
+-            case '1':
+-            case '2':
+-            case '3':
+-            case '4':
+-            case '5':
+-            case '6':
+-            case '7':
+-            case '8':
+-            case '9':
+-              num = (num << 4) + (*(p++) - '0');
+-              break;
+-            case 'a':
+-            case 'b':
+-            case 'c':
+-            case 'd':
+-            case 'e':
+-            case 'f':
+-              num = (num << 4) + (*(p++) - 'a') + 10;
+-              break;
+-            case 'A':
+-            case 'B':
+-            case 'C':
+-            case 'D':
+-            case 'E':
+-            case 'F':
+-              num = (num << 4) + (*(p++) - 'A') + 10;
+-              break;
+-            default:
+-              *(q++) = num;
+-              ++count;
+-              state = ST_GND;
+-              break;
+-            }
+-          break;
+-
+-        case ST_CARET:		/* Caret escape */
+-          state = ST_GND;	/* Should be the next state... */
+-          if (*p >= '@' && *p <= '~')
+-            {
+-              *(q++) = *(p++) & 037;
+-              ++count;
+-            }
+-          else if (*p == '?')
+-            {
+-              *(q++) = 127;
+-              ++count;
+-            }
+-          else
+-            state = ST_ERROR;
+-          break;
+-
+-        default:
+-          abort ();
+-        }
+-    }
+-
+-  *dest = q;
+-  *src = p;
+-  *output_count = count;
+-
+-  return state != ST_ERROR;
+-}
+-
+-enum parse_state
+-  {
+-    PS_START = 1,
+-    PS_2,
+-    PS_3,
+-    PS_4,
+-    PS_DONE,
+-    PS_FAIL
+-  };
+-
+-#define LEN_STR_PAIR(s) sizeof (s) - 1, s
+-
+-static struct bin_str color_indicator[] =
+-  {
+-    { LEN_STR_PAIR ("\033[") },		/* lc: Left of color sequence */
+-    { LEN_STR_PAIR ("m") },		/* rc: Right of color sequence */
+-    { 0, NULL },			/* ec: End color (replaces lc+rs+rc) */
+-    { LEN_STR_PAIR ("0") },		/* rs: Reset to ordinary colors */
+-    { LEN_STR_PAIR ("1") },		/* hd: Header */
+-    { LEN_STR_PAIR ("32") },		/* ad: Add line */
+-    { LEN_STR_PAIR ("31") },		/* de: Delete line */
+-    { LEN_STR_PAIR ("36") },		/* ln: Line number */
+-  };
+-
+-static const char *const indicator_name[] =
+-  {
+-    "lc", "rc", "ec", "rs", "hd", "ad", "de", "ln", NULL
+-  };
+-ARGMATCH_VERIFY (indicator_name, color_indicator);
+-
+-static char const *color_palette;
+-
+-void
+-set_color_palette (char const *palette)
+-{
+-  color_palette = palette;
+-}
+-
+-static void
+-parse_diff_color (void)
+-{
+-  char *color_buf;
+-  const char *p;		/* Pointer to character being parsed */
+-  char *buf;			/* color_buf buffer pointer */
+-  int ind_no;			/* Indicator number */
+-  char label[3];		/* Indicator label */
+-  struct color_ext_type *ext;	/* Extension we are working on */
+-
+-  if ((p = color_palette) == NULL || *p == '\0')
+-    return;
+-
+-  ext = NULL;
+-  strcpy (label, "??");
+-
+-  /* This is an overly conservative estimate, but any possible
+-     --palette string will *not* generate a color_buf longer than
+-     itself, so it is a safe way of allocating a buffer in
+-     advance.  */
+-  buf = color_buf = xstrdup (p);
+-
+-  enum parse_state state = PS_START;
+-  while (true)
+-    {
+-      switch (state)
+-        {
+-        case PS_START:		/* First label character */
+-          switch (*p)
+-            {
+-            case ':':
+-              ++p;
+-              break;
+-
+-            case '*':
+-              /* Allocate new extension block and add to head of
+-                 linked list (this way a later definition will
+-                 override an earlier one, which can be useful for
+-                 having terminal-specific defs override global).  */
+-
+-              ext = xmalloc (sizeof *ext);
+-              ext->next = color_ext_list;
+-              color_ext_list = ext;
+-
+-              ++p;
+-              ext->ext.string = buf;
+-
+-              state = (get_funky_string (&buf, &p, true, &ext->ext.len)
+-                       ? PS_4 : PS_FAIL);
+-              break;
+-
+-            case '\0':
+-              state = PS_DONE;	/* Done! */
+-              goto done;
+-
+-            default:	/* Assume it is file type label */
+-              label[0] = *(p++);
+-              state = PS_2;
+-              break;
+-            }
+-          break;
+-
+-        case PS_2:		/* Second label character */
+-          if (*p)
+-            {
+-              label[1] = *(p++);
+-              state = PS_3;
+-            }
+-          else
+-            state = PS_FAIL;	/* Error */
+-          break;
+-
+-        case PS_3:		/* Equal sign after indicator label */
+-          state = PS_FAIL;	/* Assume failure...  */
+-          if (*(p++) == '=')/* It *should* be...  */
+-            {
+-              for (ind_no = 0; indicator_name[ind_no] != NULL; ++ind_no)
+-                {
+-                  if (STREQ (label, indicator_name[ind_no]))
+-                    {
+-                      color_indicator[ind_no].string = buf;
+-                      state = (get_funky_string (&buf, &p, false,
+-                                                 &color_indicator[ind_no].len)
+-                               ? PS_START : PS_FAIL);
+-                      break;
+-                    }
+-                }
+-              if (state == PS_FAIL)
+-                error (0, 0, _("unrecognized prefix: %s"), label);
+-            }
+-          break;
+-
+-        case PS_4:		/* Equal sign after *.ext */
+-          if (*(p++) == '=')
+-            {
+-              ext->seq.string = buf;
+-              state = (get_funky_string (&buf, &p, false, &ext->seq.len)
+-                       ? PS_START : PS_FAIL);
+-            }
+-          else
+-            state = PS_FAIL;
+-          break;
+-
+-        case PS_FAIL:
+-          goto done;
+-
+-        default:
+-          abort ();
+-        }
+-    }
+- done:
+-
+-  if (state == PS_FAIL)
+-    {
+-      struct color_ext_type *e;
+-      struct color_ext_type *e2;
+-
+-      error (0, 0,
+-             _("unparsable value for --palette"));
+-      free (color_buf);
+-      for (e = color_ext_list; e != NULL; /* empty */)
+-        {
+-          e2 = e;
+-          e = e->next;
+-          free (e2);
+-        }
+-      colors_enabled = false;
+-    }
+-}
+-
+-static void
+-check_color_output (bool is_pipe)
+-{
+-  bool output_is_tty;
+-
+-  if (! outfile || colors_style == NEVER)
+-    return;
+-
+-  output_is_tty = presume_output_tty || (!is_pipe && isatty (fileno (outfile)));
+-
+-  colors_enabled = (colors_style == ALWAYS
+-                    || (colors_style == AUTO && output_is_tty));
+-
+-  if (colors_enabled)
+-    parse_diff_color ();
+-
+-  if (output_is_tty)
+-    install_signal_handlers ();
+-}
+-
+-/* Call before outputting the results of comparing files NAME0 and NAME1
+-   to set up OUTFILE, the stdio stream for the output to go to.
+-
+-   Usually, OUTFILE is just stdout.  But when -l was specified
+-   we fork off a 'pr' and make OUTFILE a pipe to it.
+-   'pr' then outputs to our stdout.  */
+ 
+ void
+ setup_output (char const *name0, char const *name1, bool recursive)
+@@ -737,134 +162,43 @@ setup_output (char const *name0, char co
+   outfile = 0;
+ }
+ 
+-#if HAVE_WORKING_FORK
++#if HAVE_WORKING_FORK || HAVE_WORKING_VFORK
+ static pid_t pr_pid;
+ #endif
+ 
+-static char c_escape_char (char c)
+-{
+-  switch (c) {
+-    case '\a': return 'a';
+-    case '\b': return 'b';
+-    case '\t': return 't';
+-    case '\n': return 'n';
+-    case '\v': return 'v';
+-    case '\f': return 'f';
+-    case '\r': return 'r';
+-    case '"': return '"';
+-    case '\\': return '\\';
+-    default:
+-      return c < 32;
+-  }
+-}
+-
+-static char *
+-c_escape (char const *str)
+-{
+-  char const *s;
+-  size_t plus = 0;
+-  bool must_quote = false;
+-
+-  for (s = str; *s; s++)
+-    {
+-      char c = *s;
+-
+-      if (c == ' ')
+-	{
+-	  must_quote = true;
+-	  continue;
+-	}
+-      switch (c_escape_char (*s))
+-	{
+-	  case 1:
+-	    plus += 3;
+-	    /* fall through */
+-	  case 0:
+-	    break;
+-	  default:
+-	    plus++;
+-	    break;
+-	}
+-    }
+-
+-  if (must_quote || plus)
+-    {
+-      size_t s_len = s - str;
+-      char *buffer = xmalloc (s_len + plus + 3);
+-      char *b = buffer;
+-
+-      *b++ = '"';
+-      for (s = str; *s; s++)
+-	{
+-	  char c = *s;
+-	  char escape = c_escape_char (c);
+-
+-	  switch (escape)
+-	    {
+-	      case 0:
+-		*b++ = c;
+-		break;
+-	      case 1:
+-		*b++ = '\\';
+-		*b++ = ((c >> 6) & 03) + '0';
+-		*b++ = ((c >> 3) & 07) + '0';
+-		*b++ = ((c >> 0) & 07) + '0';
+-		break;
+-	      default:
+-		*b++ = '\\';
+-		*b++ = escape;
+-		break;
+-	    }
+-	}
+-      *b++ = '"';
+-      *b = 0;
+-      return buffer;
+-    }
+-
+-  return (char *) str;
+-}
+-
+ void
+ begin_output (void)
+ {
+-  char *names[2];
+   char *name;
+ 
+   if (outfile != 0)
+     return;
+ 
+-  names[0] = c_escape (current_name0);
+-  names[1] = c_escape (current_name1);
+-
+   /* Construct the header of this piece of diff.  */
++  name = xmalloc (strlen (current_name0) + strlen (current_name1)
++		  + strlen (switch_string) + 7);
++
+   /* POSIX 1003.1-2001 specifies this format.  But there are some bugs in
+      the standard: it says that we must print only the last component
+      of the pathnames, and it requires two spaces after "diff" if
+      there are no options.  These requirements are silly and do not
+      match historical practice.  */
+-  name = xasprintf ("diff%s %s %s", switch_string, names[0], names[1]);
++  sprintf (name, "diff%s %s %s", switch_string, current_name0, current_name1);
+ 
+   if (paginate)
+     {
+-      char const *argv[4];
+-
+       if (fflush (stdout) != 0)
+ 	pfatal_with_name (_("write failed"));
+ 
+-      argv[0] = pr_program;
+-      argv[1] = "-h";
+-      argv[2] = name;
+-      argv[3] = 0;
+-
+-      /* Make OUTFILE a pipe to a subsidiary 'pr'.  */
++      /* Make OUTFILE a pipe to a subsidiary `pr'.  */
+       {
+-#if HAVE_WORKING_FORK
++#if HAVE_WORKING_FORK || HAVE_WORKING_VFORK
+ 	int pipes[2];
+ 
+ 	if (pipe (pipes) != 0)
+ 	  pfatal_with_name ("pipe");
+ 
+-	pr_pid = fork ();
++	pr_pid = vfork ();
+ 	if (pr_pid < 0)
+ 	  pfatal_with_name ("fork");
+ 
+@@ -878,7 +212,7 @@ begin_output (void)
+ 		close (pipes[0]);
+ 	      }
+ 
+-	    execv (pr_program, (char **) argv);
++	    execl (pr_program, pr_program, "-h", name, (char *) 0);
+ 	    _exit (errno == ENOENT ? 127 : 126);
+ 	  }
+ 	else
+@@ -887,15 +221,19 @@ begin_output (void)
+ 	    outfile = fdopen (pipes[1], "w");
+ 	    if (!outfile)
+ 	      pfatal_with_name ("fdopen");
+-	    check_color_output (true);
+ 	  }
+ #else
+-	char *command = system_quote_argv (SCI_SYSTEM, (char **) argv);
++	char *command = xmalloc (sizeof pr_program - 1 + 7
++				 + shell_quote_length (name) + 1);
++	char *p;
++	sprintf (command, "%s -f -h ", pr_program);
++	p = command + sizeof pr_program - 1 + 7;
++	p = shell_quote_copy (p, name);
++	*p = 0;
+ 	errno = 0;
+ 	outfile = popen (command, "w");
+ 	if (!outfile)
+ 	  pfatal_with_name (command);
+-	check_color_output (true);
+ 	free (command);
+ #endif
+       }
+@@ -903,10 +241,9 @@ begin_output (void)
+   else
+     {
+ 
+-      /* If -l was not specified, output the diff straight to 'stdout'.  */
++      /* If -l was not specified, output the diff straight to `stdout'.  */
+ 
+       outfile = stdout;
+-      check_color_output (false);
+ 
+       /* If handling multiple files (because scanning a directory),
+ 	 print which files the following output is about.  */
+@@ -920,25 +257,20 @@ begin_output (void)
+   switch (output_style)
+     {
+     case OUTPUT_CONTEXT:
+-      print_context_header (files, (char const *const *)names, false);
++      print_context_header (files, false);
+       break;
+ 
+     case OUTPUT_UNIFIED:
+-      print_context_header (files, (char const *const *)names, true);
++      print_context_header (files, true);
+       break;
+ 
+     default:
+       break;
+     }
+-
+-  if (names[0] != current_name0)
+-    free (names[0]);
+-  if (names[1] != current_name1)
+-    free (names[1]);
+ }
+ 
+ /* Call after the end of output of diffs for one file.
+-   Close OUTFILE and get rid of the 'pr' subfork.  */
++   Close OUTFILE and get rid of the `pr' subfork.  */
+ 
+ void
+ finish_output (void)
+@@ -950,7 +282,7 @@ finish_output (void)
+       int werrno = 0;
+       if (ferror (outfile))
+ 	fatal ("write failed");
+-#if ! HAVE_WORKING_FORK
++#if ! (HAVE_WORKING_FORK || HAVE_WORKING_VFORK)
+       wstatus = pclose (outfile);
+       if (wstatus == -1)
+ 	werrno = errno;
+@@ -964,7 +296,7 @@ finish_output (void)
+ 		? WEXITSTATUS (wstatus)
+ 		: INT_MAX);
+       if (status)
+-	die (EXIT_TROUBLE, werrno,
++	error (EXIT_TROUBLE, werrno,
+ 	       _(status == 126
+ 		 ? "subsidiary program '%s' could not be invoked"
+ 		 : status == 127
+@@ -1063,33 +395,6 @@ lines_differ (char const *s1, char const
+ 
+ 	      break;
+ 
+-	    case IGNORE_TRAILING_SPACE:
+-	    case IGNORE_TAB_EXPANSION_AND_TRAILING_SPACE:
+-	      if (isspace (c1) && isspace (c2))
+-		{
+-		  unsigned char c;
+-		  if (c1 != '\n')
+-		    {
+-		      char const *p = t1;
+-		      while ((c = *p) != '\n' && isspace (c))
+-			++p;
+-		      if (c != '\n')
+-			break;
+-		    }
+-		  if (c2 != '\n')
+-		    {
+-		      char const *p = t2;
+-		      while ((c = *p) != '\n' && isspace (c))
+-			++p;
+-		      if (c != '\n')
+-			break;
+-		    }
+-		  /* Both lines have nothing but whitespace left.  */
+-		  return false;
+-		}
+-	      if (ignore_white_space == IGNORE_TRAILING_SPACE)
+-		break;
+-	      FALLTHROUGH;
+ 	    case IGNORE_TAB_EXPANSION:
+ 	      if ((c1 == ' ' && c2 == '\t')
+ 		  || (c1 == '\t' && c2 == ' '))
+@@ -1145,13 +450,13 @@ lines_differ (char const *s1, char const
+ /* Find the consecutive changes at the start of the script START.
+    Return the last link before the first gap.  */
+ 
+-struct change * _GL_ATTRIBUTE_CONST
++struct change *
+ find_change (struct change *start)
+ {
+   return start;
+ }
+ 
+-struct change * _GL_ATTRIBUTE_CONST
++struct change *
+ find_reverse_change (struct change *start)
+ {
+   return start;
+@@ -1207,18 +512,6 @@ print_script (struct change *script,
+ void
+ print_1_line (char const *line_flag, char const *const *line)
+ {
+-  print_1_line_nl (line_flag, line, false);
+-}
+-
+-/* Print the text of a single line LINE,
+-   flagging it with the characters in LINE_FLAG (which say whether
+-   the line is inserted, deleted, changed, etc.).  LINE_FLAG must not
+-   end in a blank, unless it is a single blank.  If SKIP_NL is set, then
+-   the final '\n' is not printed.  */
+-
+-void
+-print_1_line_nl (char const *line_flag, char const *const *line, bool skip_nl)
+-{
+   char const *base = line[0], *limit = line[1]; /* Help the compiler.  */
+   FILE *out = outfile; /* Help the compiler some more.  */
+   char const *flag_format = 0;
+@@ -1246,13 +539,10 @@ print_1_line_nl (char const *line_flag,
+       fprintf (out, flag_format_1, line_flag_1);
+     }
+ 
+-  output_1_line (base, limit - (skip_nl && limit[-1] == '\n'), flag_format, line_flag);
++  output_1_line (base, limit, flag_format, line_flag);
+ 
+   if ((!line_flag || line_flag[0]) && limit[-1] != '\n')
+-    {
+-      set_color_context (RESET_CONTEXT);
+-      fprintf (out, "\n\\ %s\n", _("No newline at end of file"));
+-    }
++    fprintf (out, "\n\\ %s\n", _("No newline at end of file"));
+ }
+ 
+ /* Output a line from BASE up to LIMIT.
+@@ -1264,21 +554,8 @@ void
+ output_1_line (char const *base, char const *limit, char const *flag_format,
+ 	       char const *line_flag)
+ {
+-  const size_t MAX_CHUNK = 1024;
+   if (!expand_tabs)
+-    {
+-      size_t left = limit - base;
+-      while (left)
+-        {
+-          size_t to_write = MIN (left, MAX_CHUNK);
+-          size_t written = fwrite (base, sizeof (char), to_write, outfile);
+-          if (written < to_write)
+-            return;
+-          base += written;
+-          left -= written;
+-          process_signals ();
+-        }
+-    }
++    fwrite (base, sizeof (char), limit - base, outfile);
+   else
+     {
+       register FILE *out = outfile;
+@@ -1286,104 +563,42 @@ output_1_line (char const *base, char co
+       register char const *t = base;
+       register size_t column = 0;
+       size_t tab_size = tabsize;
+-      size_t counter_proc_signals = 0;
+ 
+       while (t < limit)
+-        {
+-          counter_proc_signals++;
+-          if (counter_proc_signals == MAX_CHUNK)
+-            {
+-              process_signals ();
+-              counter_proc_signals = 0;
+-            }
+-
+-          switch ((c = *t++))
+-            {
+-            case '\t':
+-              {
+-                size_t spaces = tab_size - column % tab_size;
+-                column += spaces;
+-                do
+-                  putc (' ', out);
+-                while (--spaces);
+-              }
+-              break;
+-
+-            case '\r':
+-              putc (c, out);
+-              if (flag_format && t < limit && *t != '\n')
+-                fprintf (out, flag_format, line_flag);
+-              column = 0;
+-              break;
+-
+-            case '\b':
+-              if (column == 0)
+-                continue;
+-              column--;
+-              putc (c, out);
+-              break;
+-
+-            default:
+-              column += isprint (c) != 0;
+-              putc (c, out);
+-              break;
+-            }
+-        }
+-    }
+-}
+-
+-enum indicator_no
+-  {
+-    C_LEFT, C_RIGHT, C_END, C_RESET, C_HEADER, C_ADD, C_DELETE, C_LINE
+-  };
++	switch ((c = *t++))
++	  {
++	  case '\t':
++	    {
++	      size_t spaces = tab_size - column % tab_size;
++	      column += spaces;
++	      do
++		putc (' ', out);
++	      while (--spaces);
++	    }
++	    break;
+ 
+-static void
+-put_indicator (const struct bin_str *ind)
+-{
+-  fwrite (ind->string, ind->len, 1, outfile);
+-}
++	  case '\r':
++	    putc (c, out);
++	    if (flag_format && t < limit && *t != '\n')
++	      fprintf (out, flag_format, line_flag);
++	    column = 0;
++	    break;
+ 
+-static enum color_context last_context = RESET_CONTEXT;
++	  case '\b':
++	    if (column == 0)
++	      continue;
++	    column--;
++	    putc (c, out);
++	    break;
+ 
+-void
+-set_color_context (enum color_context color_context)
+-{
+-  if (color_context != RESET_CONTEXT)
+-    process_signals ();
+-  if (colors_enabled && last_context != color_context)
+-    {
+-      put_indicator (&color_indicator[C_LEFT]);
+-      switch (color_context)
+-        {
+-        case HEADER_CONTEXT:
+-          put_indicator (&color_indicator[C_HEADER]);
+-          break;
+-
+-        case LINE_NUMBER_CONTEXT:
+-          put_indicator (&color_indicator[C_LINE]);
+-          break;
+-
+-        case ADD_CONTEXT:
+-          put_indicator (&color_indicator[C_ADD]);
+-          break;
+-
+-        case DELETE_CONTEXT:
+-          put_indicator (&color_indicator[C_DELETE]);
+-          break;
+-
+-        case RESET_CONTEXT:
+-          put_indicator (&color_indicator[C_RESET]);
+-          break;
+-
+-        default:
+-          abort ();
+-        }
+-      put_indicator (&color_indicator[C_RIGHT]);
+-      last_context = color_context;
++	  default:
++	    column += isprint (c) != 0;
++	    putc (c, out);
++	    break;
++	  }
+     }
+ }
+ 
+-
+ char const change_letter[] = { 0, 'd', 'a', 'c' };
+ 
+ /* Translate an internal line number (an index into diff's table of lines)
+@@ -1393,20 +608,20 @@ char const change_letter[] = { 0, 'd', '
+    Internal line numbers count from 0 starting after the prefix.
+    Actual line numbers count from 1 within the entire file.  */
+ 
+-lin _GL_ATTRIBUTE_PURE
++lin
+ translate_line_number (struct file_data const *file, lin i)
+ {
+   return i + file->prefix_lines + 1;
+ }
+ 
+ /* Translate a line number range.  This is always done for printing,
+-   so for convenience translate to printint rather than lin, so that the
+-   caller can use printf with "%"pI"d" without casting.  */
++   so for convenience translate to long int rather than lin, so that the
++   caller can use printf with "%ld" without casting.  */
+ 
+ void
+ translate_range (struct file_data const *file,
+ 		 lin a, lin b,
+-		 printint *aptr, printint *bptr)
++		 long int *aptr, long int *bptr)
+ {
+   *aptr = translate_line_number (file, a - 1) + 1;
+   *bptr = translate_line_number (file, b + 1) - 1;
+@@ -1421,21 +636,21 @@ translate_range (struct file_data const
+ void
+ print_number_range (char sepchar, struct file_data *file, lin a, lin b)
+ {
+-  printint trans_a, trans_b;
++  long int trans_a, trans_b;
+   translate_range (file, a, b, &trans_a, &trans_b);
+ 
+   /* Note: we can have B < A in the case of a range of no lines.
+      In this case, we should print the line number before the range,
+      which is B.  */
+   if (trans_b > trans_a)
+-    fprintf (outfile, "%"pI"d%c%"pI"d", trans_a, sepchar, trans_b);
++    fprintf (outfile, "%ld%c%ld", trans_a, sepchar, trans_b);
+   else
+-    fprintf (outfile, "%"pI"d", trans_b);
++    fprintf (outfile, "%ld", trans_b);
+ }
+ 
+ /* Look at a hunk of edit script and report the range of lines in each file
+    that it applies to.  HUNK is the start of the hunk, which is a chain
+-   of 'struct change'.  The first and last line numbers of file 0 are stored in
++   of `struct change'.  The first and last line numbers of file 0 are stored in
+    *FIRST0 and *LAST0, and likewise for file 1 in *FIRST1 and *LAST1.
+    Note that these are internal line numbers that count from 0.
+ 
+@@ -1459,11 +674,8 @@ analyze_hunk (struct change *hunk,
+   size_t trivial_length = ignore_blank_lines - 1;
+     /* If 0, ignore zero-length lines;
+        if SIZE_MAX, do not ignore lines just because of their length.  */
+-
+-  bool skip_white_space =
+-    ignore_blank_lines && IGNORE_TRAILING_SPACE <= ignore_white_space;
+   bool skip_leading_white_space =
+-    skip_white_space && IGNORE_SPACE_CHANGE <= ignore_white_space;
++    (ignore_blank_lines && IGNORE_SPACE_CHANGE <= ignore_white_space);
+ 
+   char const * const *linbuf0 = files[0].linbuf;  /* Help the compiler.  */
+   char const * const *linbuf1 = files[1].linbuf;
+@@ -1484,18 +696,12 @@ analyze_hunk (struct change *hunk,
+       for (i = next->line0; i <= l0 && trivial; i++)
+ 	{
+ 	  char const *line = linbuf0[i];
+-	  char const *lastbyte = linbuf0[i + 1] - 1;
+-	  char const *newline = lastbyte + (*lastbyte != '\n');
++	  char const *newline = linbuf0[i + 1] - 1;
+ 	  size_t len = newline - line;
+ 	  char const *p = line;
+-	  if (skip_white_space)
+-	    for (; *p != '\n'; p++)
+-	      if (! isspace ((unsigned char) *p))
+-		{
+-		  if (! skip_leading_white_space)
+-		    p = line;
+-		  break;
+-		}
++	  if (skip_leading_white_space)
++	    while (isspace ((unsigned char) *p) && *p != '\n')
++	      p++;
+ 	  if (newline - p != trivial_length
+ 	      && (! ignore_regexp.fastmap
+ 		  || re_search (&ignore_regexp, line, len, 0, len, 0) < 0))
+@@ -1505,18 +711,12 @@ analyze_hunk (struct change *hunk,
+       for (i = next->line1; i <= l1 && trivial; i++)
+ 	{
+ 	  char const *line = linbuf1[i];
+-	  char const *lastbyte = linbuf1[i + 1] - 1;
+-	  char const *newline = lastbyte + (*lastbyte != '\n');
++	  char const *newline = linbuf1[i + 1] - 1;
+ 	  size_t len = newline - line;
+ 	  char const *p = line;
+-	  if (skip_white_space)
+-	    for (; *p != '\n'; p++)
+-	      if (! isspace ((unsigned char) *p))
+-		{
+-		  if (! skip_leading_white_space)
+-		    p = line;
+-		  break;
+-		}
++	  if (skip_leading_white_space)
++	    while (isspace ((unsigned char) *p) && *p != '\n')
++	      p++;
+ 	  if (newline - p != trivial_length
+ 	      && (! ignore_regexp.fastmap
+ 		  || re_search (&ignore_regexp, line, len, 0, len, 0) < 0))
+@@ -1556,6 +756,18 @@ zalloc (size_t size)
+   memset (p, 0, size);
+   return p;
+ }
++
++/* Yield the newly malloc'd pathname
++   of the file in DIR whose filename is FILE.  */
++
++char *
++dir_file_pathname (char const *dir, char const *file)
++{
++  char const *base = last_component (dir);
++  size_t baselen = base_len (base);
++  bool omit_slash = baselen == 0 || base[baselen - 1] == '/';
++  return concat (dir, "/" + omit_slash, file);
++}
+ 
+ void
+ debug_script (struct change *sp)
+@@ -1564,11 +776,11 @@ debug_script (struct change *sp)
+ 
+   for (; sp; sp = sp->link)
+     {
+-      printint line0 = sp->line0;
+-      printint line1 = sp->line1;
+-      printint deleted = sp->deleted;
+-      printint inserted = sp->inserted;
+-      fprintf (stderr, "%3"pI"d %3"pI"d delete %"pI"d insert %"pI"d\n",
++      long int line0 = sp->line0;
++      long int line1 = sp->line1;
++      long int deleted = sp->deleted;
++      long int inserted = sp->inserted;
++      fprintf (stderr, "%3ld %3ld delete %ld insert %ld\n",
+ 	       line0, line1, deleted, inserted);
+     }
+ 
