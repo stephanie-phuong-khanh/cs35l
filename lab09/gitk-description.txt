@@ -1,0 +1,21 @@
+Top left window:
+The repository's commits and branches (denoted by color) in tree structure,
+each commit denoted by a blue circle and the commit message next to it.
+
+Top middle window:
+Author name and email corresponding to the commit in the window to its left
+   
+Top right window:
+Timestamp of commit corresponding to commit, in the format:  2019-03-14
+
+Bottom left window:
+Commit information: author, committer, parent, child, branches, follows,
+precedes, and commit message/ChangeLog for the commit.
+
+Bottom right window:
+Files changed by the commit and comments for commit. The file name is clickable
+and will cause the corresponding diff to be shown in the bottom left window.
+
+Vertically centered strip:
+SHA1 ID of commit, arrow letting you go from one commit to the next as listed
+in the top windows, row number/total row.

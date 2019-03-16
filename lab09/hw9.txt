@@ -1,0 +1,93 @@
+2.  Checkout diffutiles onto branch "quote" (branch from master)
+    $   git checkout v3.0 -b quote
+
+3.  Apply patch, having patch in same parent director as the diffutils folder.
+    I ran this command inside the diffutils folder.
+    $   patch -p1 < ../quote-3.0-patch.txt
+    patching file src/cmp.c
+    patching file src/diff.c
+    patching file src/diff3.c
+    patching file src/dir.c
+    patching file src/sdiff.c
+    patching file src/util.c
+
+4.  add-change-log-entry-other-window:  C-x 4 a
+
+5.  Created changelog and pasted info for each function changed by our patch:
+    $   emacs
+    $   C-x 4 a
+
+    * src/cmp.c (try_help, specify_ignore_initial, usage, main):
+    * src/diff.c (main, try_help, option_help_msgid, specify_value)
+    (compare_files):
+    * src/diff3.c (main, try_help, option_help_msgid, usage)
+    (read_diff):
+    * src/dir.c (compare_names):
+    * src/sdiff.c (try_help, usage, check_child_status, main):
+    * src/util.c (finish_output):
+    Quote 'like this' in output.
+
+    Write ChangeLog to directory and exited Emacs:
+    $   C-x C-s
+    $   C-x C-c
+
+6.  Commit changes to new branch:
+    $   git add .
+    $   git commit -F ChangeLog
+
+7.  Generate formatted-patch.txt:
+    $   git format-patch -1 --stdout > formatted-patch.txt
+
+8.  For this section I worked with Eric Chen. I uploaded his patch (which I named
+    eric-patch.txt) to the server and applied the patch in new 'eric' branch I created
+    by branching from master.
+    $   git checkout v3.0 -b eric
+    $   git am eric-patch.txt
+
+    Check it works by rebuilding with same patch linked in the spec:
+    $   ./bootstrap
+    $   patch -p0 < diffutils-gets.diff
+    $   ./configure
+    $   make
+    $   make check
+
+    I perform the same tests as we did in lab:
+    $   ./src/diff . -
+    ./src/diff: cannot compare '-' to a directory
+    This is correct because there are two ' instead of `-' like before.
+
+    $   ./src/diff --help | grep "[\`]"
+    No output, so no backticks found.
+
+    Eric's patch works, and mine works when he tests on his server.
+
+9.  Check that ChangeLog entry works:
+    $   make distdir
+    This creates the folder diffutils-3.0.1-0bde6 in which I examine the ChangeLog
+    to see that the first commit is Eric's:
+    $   emacs diffutils-3.0.1-0bde6/ChangeLog
+    2019-03-14  Eric Jeung Chen  <jeung@lnxsrv09.seas.ucla.edu>
+
+        2019-03-14 Eric Jeung Chen <jeung@lnxsrv09.seas.ucla.edu>
+                * cmp.c  Changed Grave Accent to the apostrophe to character string constants
+
+                * diff.c Changed Grave Accent to the apostrophe to character string constants
+
+                * diff3.c Changed Grave Accent to the apostrophe to character string constants
+
+                * dir.c Changed Grave Accent to the apostrophe to character string constants
+
+                * sdiff.c Changed Grave Accent to the apostrophe to character string constants
+
+                * util.c Changed Grave Accent to the apostrophe to character string constants
+
+10. Emacs repository:
+    Exited server, ssh again with -Y flag to allow trusted X11 forwarding. Inside the
+    emacs repository, run gitk:
+    $   ssh -Y classste@lnxsrv07.seas.ucla.edu 
+    $   cd ~eggert/src/gnu/emacs
+    $   gitk
+
+    The window in XQuartz opened up and I scrolled and found the earliest commit no
+    newer than 2015-01-25 and screenshotted:
+        Author: Joakim Verona <joakim@verona.se>  2015-01-25 12:19:27

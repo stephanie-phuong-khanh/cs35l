@@ -1,3 +1,27 @@
+From ba9bfc7108c146c84306b54bfdb60757b9a99726 Mon Sep 17 00:00:00 2001
+From: Stephanie Phuong Khanh Doan <classste@lnxsrv07.seas.ucla.edu>
+Date: Thu, 14 Mar 2019 18:00:48 -0700
+Subject: [PATCH] 2019-03-14  Stephanie Phuong Khanh Doan 
+ <classste@lnxsrv07.seas.ucla.edu>
+
+	* src/cmp.c (try_help, specify_ignore_initial, usage, main):
+	* src/diff.c (main, try_help, option_help_msgid, specify_value)
+	(compare_files):
+	* src/diff3.c (main, try_help, option_help_msgid, usage)
+	(read_diff):
+	* src/dir.c (compare_names):
+	* src/sdiff.c (try_help, usage, check_child_status, main):
+	* src/util.c (finish_output):
+	Quote 'like this' in output.
+---
+ src/cmp.c   | 12 ++++++------
+ src/diff.c  | 28 ++++++++++++++--------------
+ src/diff3.c | 20 ++++++++++----------
+ src/dir.c   |  2 +-
+ src/sdiff.c | 16 ++++++++--------
+ src/util.c  |  8 ++++----
+ 6 files changed, 43 insertions(+), 43 deletions(-)
+
 diff --git a/src/cmp.c b/src/cmp.c
 index 2455dc4..e19f013 100644
 --- a/src/cmp.c
@@ -324,3 +348,6 @@ index 3be03e9..d18bf38 100644
  	       pr_program, status);
      }
  
+-- 
+1.8.3.1
+
